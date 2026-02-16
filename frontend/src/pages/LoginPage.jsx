@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import api from '../api/client';
+import LogoMark from '../components/LogoMark';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -22,29 +23,40 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-card">
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={(event) => setForm({ ...form, email: event.target.value })}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={(event) => setForm({ ...form, password: event.target.value })}
-          required
-        />
-        <button type="submit">Sign in</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-      <p>
-        No account? <Link to="/register">Register</Link>
-      </p>
+    <div className="auth-shell">
+      <div className="auth-brand">
+        <LogoMark />
+        <h1>Train with Clarity. Improve with Data.</h1>
+        <p>
+          Every workout becomes a signal: volume, strength, trend, and plateau detection in one place.
+        </p>
+      </div>
+
+      <div className="auth-card">
+        <h2>Welcome back</h2>
+        <p className="subtitle">Log in to continue your progression timeline.</p>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(event) => setForm({ ...form, email: event.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+            required
+          />
+          <button type="submit">Sign in</button>
+        </form>
+        {error && <p className="error">{error}</p>}
+        <p>
+          No account? <Link to="/register">Create one</Link>
+        </p>
+      </div>
     </div>
   );
 }
