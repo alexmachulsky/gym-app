@@ -1,0 +1,71 @@
+name: Deploy to EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: AWS region where EKS cluster is running
+        required: true
+        default: us-east-1
+      cluster_name:
+        description: EKS cluster name
+        required: true
+        default: gym-app-dev
+      namespace:
+        description: Kubernetes namespace
+        required: true
+        default: gym
+      backend_image:
+        description: Full backend image reference
+        required: true
+        default: ghcr.io/alexmachulsky/gym-app-backend:latest
+      frontend_image:
+        description: Full frontend image reference
+        required: true
+        default: ghcr.io/alexmachulsky/gym-app-frontend:latest
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region "${{ inputs.aws_region }}" \
+            --name "${{ inputs.cluster_name }}"
+
+      - name: Apply base manifests
+        run: kubectl apply -k k8s/base
+
+      - name: Set deploy image tags
+        run: |
+          kubectl -n "${{ inputs.namespace }}" set image deployment/backend \
+            backend="${{ inputs.backend_image }}"
+          kubectl -n "${{ inputs.namespace }}" set image deployment/frontend \
+            frontend="${{ inputs.frontend_image }}"
+
+      - name: Wait for rollouts
+        run: |
+          kubectl -n "${{ inputs.namespace }}" rollout status deployment/backend --timeout=180s
+          kubectl -n "${{ inputs.namespace }}" rollout status deployment/frontend --timeout=180s
+
+      - name: Show services and ingress
+        run: kubectl -n "${{ inputs.namespace }}" get svc,ingress

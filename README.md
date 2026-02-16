@@ -1,4 +1,4 @@
-# Smart Gym Progress Tracker (Phases 1-2)
+# Smart Gym Progress Tracker (Phases 1-3)
 
 Production-style full-stack fitness tracking app with FastAPI, React, PostgreSQL, Docker Compose, JWT auth, progression analytics, and tests.
 
@@ -21,6 +21,7 @@ Production-style full-stack fitness tracking app with FastAPI, React, PostgreSQL
 - Unit and integration tests with `pytest`
 - CI pipeline for backend tests, frontend build, Docker image builds, and compose smoke testing
 - Optional GHCR image publish workflow for backend and frontend containers
+- AWS EKS + Kubernetes deployment assets (Terraform + manifests + deploy workflow)
 
 ## Project Structure
 
@@ -28,6 +29,8 @@ Production-style full-stack fitness tracking app with FastAPI, React, PostgreSQL
 - `frontend/` React Vite app with protected pages
 - `docker-compose.yml` local orchestration
 - `.env.example` environment variable template
+- `infra/terraform/aws/` Terraform for cloud infrastructure (VPC + EKS)
+- `k8s/base/` Kubernetes manifests (namespace, app, db, ingress)
 
 ## Environment Setup
 
@@ -66,6 +69,7 @@ Workflows are in `.github/workflows/`:
 
 - `ci.yml`
 - `publish-images.yml`
+- `deploy-k8s.yml`
 
 ### CI workflow (`ci.yml`)
 
@@ -89,6 +93,29 @@ Runs on push to `main`/`master` and `workflow_dispatch`:
 Required permissions/secrets:
 
 - Uses built-in `GITHUB_TOKEN` with `packages: write` permission
+
+## Phase 3: Cloud + Kubernetes
+
+Infrastructure and deployment assets:
+
+- Terraform: `infra/terraform/aws/`
+- Kubernetes manifests: `k8s/base/`
+- Deployment guide: `k8s/README.md`
+- Manual deployment workflow: `.github/workflows/deploy-k8s.yml`
+
+### Quick flow
+
+1. Provision AWS EKS with Terraform.
+2. Configure kubeconfig using Terraform output.
+3. Install NGINX ingress controller.
+4. Update Kubernetes secrets/ingress host/image tags.
+5. Deploy with:
+
+```bash
+kubectl apply -k k8s/base
+```
+
+6. Optionally run GitHub Actions manual workflow `Deploy to EKS` for rollout updates.
 
 ## API Endpoints
 
