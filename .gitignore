@@ -20,3 +20,6 @@ crash.log
 
 # Editor
 .vscode/
+
+# Git worktrees
+.worktrees/
