@@ -31,11 +31,13 @@ class WorkoutService:
         return exercise
 
     @staticmethod
-    def list_exercises(db: Session, user: User) -> list[Exercise]:
+    def list_exercises(db: Session, user: User, skip: int = 0, limit: int = 50) -> list[Exercise]:
         return (
             db.query(Exercise)
             .filter(Exercise.user_id == user.id)
             .order_by(Exercise.created_at.asc())
+            .offset(skip)
+            .limit(limit)
             .all()
         )
 
@@ -80,12 +82,38 @@ class WorkoutService:
         )
 
     @staticmethod
+    def delete_workout(db: Session, user: User, workout_id: uuid.UUID) -> None:
+        workout = (
+            db.query(Workout)
+            .filter(Workout.id == workout_id, Workout.user_id == user.id)
+            .first()
+        )
+        if not workout:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Workout not found')
+        db.delete(workout)
+        db.commit()
+
+    @staticmethod
+    def delete_exercise(db: Session, user: User, exercise_id: uuid.UUID) -> None:
+        exercise = (
+            db.query(Exercise)
+            .filter(Exercise.id == exercise_id, Exercise.user_id == user.id)
+            .first()
+        )
+        if not exercise:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Exercise not found')
+        db.delete(exercise)
+        db.commit()
+
+    @staticmethod
     def list_workouts(
         db: Session,
         user: User,
         from_date: date | None = None,
         to_date: date | None = None,
         exercise_id: uuid.UUID | None = None,
+        skip: int = 0,
+        limit: int = 50,
     ) -> list[Workout]:
         query = (
             db.query(Workout)
@@ -99,7 +127,7 @@ class WorkoutService:
         if to_date:
             query = query.filter(Workout.date <= to_date)
 
-        workouts = query.all()
+        workouts = query.offset(skip).limit(limit).all()
         if exercise_id:
             workouts = [
                 w for w in workouts if any(set_item.exercise_id == exercise_id for set_item in w.workout_sets)

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import api from '../api/client';
+import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { getExerciseImageByName } from '../data/exerciseLibrary';
+import { useToast } from '../hooks/useToast';
 
 const makeSetRow = () => ({ exercise_id: '', weight: '', reps: '', sets: '' });
 
@@ -15,11 +18,18 @@ function calculateTotalVolume(workouts) {
 }
 
 export default function WorkoutsPage() {
+  const { addToast } = useToast();
   const [workoutDate, setWorkoutDate] = useState('');
+  const [dateTouched, setDateTouched] = useState(false);
   const [rows, setRows] = useState([makeSetRow()]);
   const [exercises, setExercises] = useState([]);
   const [workouts, setWorkouts] = useState([]);
-  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const dateError = dateTouched && workoutDate && workoutDate > new Date().toISOString().slice(0, 10)
+    ? 'Workout date cannot be in the future'
+    : '';
 
   const exerciseNameById = useMemo(
     () => new Map(exercises.map((exercise) => [exercise.id, exercise.name])),
@@ -45,7 +55,7 @@ export default function WorkoutsPage() {
   };
 
   useEffect(() => {
-    loadData().catch(() => setError('Failed to load workout data'));
+    loadData().catch(() => addToast('Failed to load workout data', 'error'));
   }, []);
 
   const updateRow = (index, key, value) => {
@@ -63,7 +73,9 @@ export default function WorkoutsPage() {
 
   const createWorkout = async (event) => {
     event.preventDefault();
-    setError('');
+    setDateTouched(true);
+    if (dateError || (workoutDate > new Date().toISOString().slice(0, 10))) return;
+    setIsSubmitting(true);
 
     const payload = {
       date: workoutDate,
@@ -80,8 +92,23 @@ export default function WorkoutsPage() {
       setRows([makeSetRow()]);
       setWorkoutDate('');
       await loadData();
+      addToast('Workout logged successfully', 'success');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create workout');
+      addToast(err.response?.data?.detail || 'Failed to create workout', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteWorkout = async (id) => {
+    try {
+      await api.delete(`/workouts/${id}`);
+      setWorkouts((prev) => prev.filter((w) => w.id !== id));
+      addToast('Workout deleted', 'success');
+    } catch (err) {
+      addToast(err.response?.data?.detail || 'Failed to delete workout', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -113,9 +140,13 @@ export default function WorkoutsPage() {
           <input
             type="date"
             value={workoutDate}
+            className={dateError ? 'invalid' : ''}
             onChange={(event) => setWorkoutDate(event.target.value)}
+            onBlur={() => setDateTouched(true)}
             required
+            disabled={isSubmitting}
           />
+          {dateError && <p className="field-error">{dateError}</p>}
         </label>
 
         <div className="set-grid">
@@ -129,6 +160,7 @@ export default function WorkoutsPage() {
                     value={row.exercise_id}
                     onChange={(event) => updateRow(index, 'exercise_id', event.target.value)}
                     required
+                    disabled={isSubmitting}
                   >
                     <option value="">Select exercise</option>
                     {exercises.map((exercise) => (
@@ -145,6 +177,7 @@ export default function WorkoutsPage() {
                     value={row.weight}
                     onChange={(event) => updateRow(index, 'weight', event.target.value)}
                     required
+                    disabled={isSubmitting}
                   />
                   <input
                     type="number"
@@ -153,6 +186,7 @@ export default function WorkoutsPage() {
                     value={row.reps}
                     onChange={(event) => updateRow(index, 'reps', event.target.value)}
                     required
+                    disabled={isSubmitting}
                   />
                   <input
                     type="number"
@@ -161,8 +195,9 @@ export default function WorkoutsPage() {
                     value={row.sets}
                     onChange={(event) => updateRow(index, 'sets', event.target.value)}
                     required
+                    disabled={isSubmitting}
                   />
-                  <button type="button" className="ghost-btn" onClick={() => removeRow(index)}>
+                  <button type="button" className="ghost-btn" onClick={() => removeRow(index)} disabled={isSubmitting}>
                     Remove
                   </button>
                 </div>
@@ -172,44 +207,71 @@ export default function WorkoutsPage() {
         </div>
 
         <div className="button-row">
-          <button type="button" className="ghost-btn" onClick={addRow}>Add Set</button>
-          <button type="submit">Log Workout</button>
+          <button type="button" className="ghost-btn" onClick={addRow} disabled={isSubmitting}>Add Set</button>
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : 'Log Workout'}
+          </button>
         </div>
       </form>
 
-      {error && <p className="error">{error}</p>}
-
       <div className="history-list">
         <h3>Workout History</h3>
-        {workouts.map((workout) => {
-          const volume = workout.sets.reduce(
-            (sum, setItem) => sum + Number(setItem.weight) * Number(setItem.reps) * Number(setItem.sets),
-            0
-          );
+        {workouts.length === 0 ? (
+          <EmptyState
+            icon="🏋️"
+            title="No workouts yet"
+            description="Log your first workout above to start tracking your progress."
+          />
+        ) : (
+          workouts.map((workout) => {
+            const volume = workout.sets.reduce(
+              (sum, setItem) => sum + Number(setItem.weight) * Number(setItem.reps) * Number(setItem.sets),
+              0
+            );
 
-          return (
-            <article key={workout.id} className="history-card stagger-item">
-              <div className="history-header">
-                <h4>{new Date(workout.date).toLocaleDateString()}</h4>
-                <span>{Math.round(volume).toLocaleString()} volume</span>
-              </div>
-              <ul>
-                {workout.sets.map((setItem) => {
-                  const name = exerciseNameById.get(setItem.exercise_id) || setItem.exercise_id;
-                  return (
-                    <li key={setItem.id}>
-                      <strong>{name}</strong>
-                      <span>
-                        {setItem.weight} kg x {setItem.reps} reps x {setItem.sets} sets
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </article>
-          );
-        })}
+            return (
+              <article key={workout.id} className="history-card stagger-item">
+                <div className="history-header">
+                  <h4>{new Date(workout.date).toLocaleDateString()}</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span>{Math.round(volume).toLocaleString()} volume</span>
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={() => setDeletingId(workout.id)}
+                      aria-label="Delete workout"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <ul>
+                  {workout.sets.map((setItem) => {
+                    const name = exerciseNameById.get(setItem.exercise_id) || setItem.exercise_id;
+                    return (
+                      <li key={setItem.id}>
+                        <strong>{name}</strong>
+                        <span>
+                          {setItem.weight} kg x {setItem.reps} reps x {setItem.sets} sets
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+            );
+          })
+        )}
       </div>
+
+      {deletingId && (
+        <ConfirmDialog
+          title="Delete workout?"
+          message="This will permanently remove this workout session and all its sets."
+          onConfirm={() => deleteWorkout(deletingId)}
+          onCancel={() => setDeletingId(null)}
+        />
+      )}
     </section>
   );
 }

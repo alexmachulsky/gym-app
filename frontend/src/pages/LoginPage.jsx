@@ -4,21 +4,43 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import LogoMark from '../components/LogoMark';
 
+function validate(form) {
+  const errors = {};
+  if (!form.email) errors.email = 'Email is required';
+  if (!form.password) errors.password = 'Password is required';
+  return errors;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
+  const [touched, setTouched] = useState({});
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const errors = validate(form);
+
+  const handleBlur = (field) => setTouched((prev) => ({ ...prev, [field]: true }));
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setTouched({ email: true, password: true });
+    if (Object.keys(errors).length > 0) return;
+
     setError('');
+    setIsSubmitting(true);
 
     try {
       const response = await api.post('/auth/login', form);
       localStorage.setItem('access_token', response.data.access_token);
+      if (response.data.refresh_token) {
+        localStorage.setItem('refresh_token', response.data.refresh_token);
+      }
       navigate('/workouts', { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || 'Login failed');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -35,22 +57,34 @@ export default function LoginPage() {
       <div className="auth-card">
         <h2>Welcome back</h2>
         <p className="subtitle">Log in to continue your progression timeline.</p>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={(event) => setForm({ ...form, password: event.target.value })}
-            required
-          />
-          <button type="submit">Sign in</button>
+        <form onSubmit={handleSubmit} noValidate>
+          <div>
+            <input
+              type="email"
+              placeholder="Email"
+              value={form.email}
+              className={touched.email && errors.email ? 'invalid' : ''}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              onBlur={() => handleBlur('email')}
+              disabled={isSubmitting}
+            />
+            {touched.email && errors.email && <p className="field-error">{errors.email}</p>}
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              className={touched.password && errors.password ? 'invalid' : ''}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              onBlur={() => handleBlur('password')}
+              disabled={isSubmitting}
+            />
+            {touched.password && errors.password && <p className="field-error">{errors.password}</p>}
+          </div>
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Signing in…' : 'Sign in'}
+          </button>
         </form>
         {error && <p className="error">{error}</p>}
         <p>

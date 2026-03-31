@@ -1,19 +1,26 @@
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class WorkoutSetCreateRequest(BaseModel):
     exercise_id: uuid.UUID
-    weight: float = Field(gt=0)
-    reps: int = Field(gt=0)
-    sets: int = Field(gt=0)
+    weight: float = Field(gt=0, le=1000)
+    reps: int = Field(ge=1, le=200)
+    sets: int = Field(ge=1, le=100)
 
 
 class WorkoutCreateRequest(BaseModel):
     date: date
     sets: list[WorkoutSetCreateRequest] = Field(min_length=1)
+
+    @field_validator('date')
+    @classmethod
+    def date_not_in_future(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError('Workout date cannot be in the future')
+        return v
 
 
 class WorkoutSetResponse(BaseModel):

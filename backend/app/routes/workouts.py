@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -28,8 +28,20 @@ def list_workouts(
     from_date: date | None = Query(default=None),
     to_date: date | None = Query(default=None),
     exercise_id: uuid.UUID | None = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    workouts = WorkoutService.list_workouts(db, current_user, from_date, to_date, exercise_id)
+    workouts = WorkoutService.list_workouts(db, current_user, from_date, to_date, exercise_id, skip, limit)
     return [workout_to_response(workout) for workout in workouts]
+
+
+@router.delete('/{workout_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_workout(
+    workout_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    WorkoutService.delete_workout(db, current_user, workout_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

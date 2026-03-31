@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import api from '../api/client';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { EXERCISE_LIBRARY, LIBRARY_CATEGORIES } from '../data/exerciseLibrary';
+import { useToast } from '../hooks/useToast';
 
 export default function ExercisesPage() {
+  const { addToast } = useToast();
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [showOnlyMissing, setShowOnlyMissing] = useState(false);
   const [exercises, setExercises] = useState([]);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const loadExercises = async () => {
     const response = await api.get('/exercises');
@@ -18,7 +21,7 @@ export default function ExercisesPage() {
   };
 
   useEffect(() => {
-    loadExercises().catch(() => setError('Failed to load exercises'));
+    loadExercises().catch(() => addToast('Failed to load exercises', 'error'));
   }, []);
 
   const existingExerciseNames = useMemo(
@@ -42,43 +45,57 @@ export default function ExercisesPage() {
   }, [category, existingExerciseNames, search, showOnlyMissing]);
 
   const createExercise = async (exerciseName) => {
-    setError('');
-    setNotice('');
-
     try {
       await api.post('/exercises', { name: exerciseName });
       setName('');
       await loadExercises();
-      setNotice(`Added "${exerciseName}" to your exercise list.`);
+      addToast(`Added "${exerciseName}" to your exercise list.`, 'success');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create exercise');
+      addToast(err.response?.data?.detail || 'Failed to create exercise', 'error');
     }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    await createExercise(name);
+    setIsSubmitting(true);
+    try {
+      await createExercise(name);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const addVisibleExercises = async () => {
-    setError('');
-    setNotice('');
-
     const addable = filteredLibrary.filter(
       (exercise) => !existingExerciseNames.has(exercise.name.toLowerCase())
     );
 
     if (addable.length === 0) {
-      setNotice('All visible exercises are already in your list.');
+      addToast('All visible exercises are already in your list.', 'info');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await Promise.all(addable.map((exercise) => api.post('/exercises', { name: exercise.name })));
       await loadExercises();
-      setNotice(`Added ${addable.length} exercises from the current view.`);
+      addToast(`Added ${addable.length} exercises from the current view.`, 'success');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to add visible exercises');
+      addToast(err.response?.data?.detail || 'Failed to add visible exercises', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteExercise = async (id) => {
+    try {
+      await api.delete(`/exercises/${id}`);
+      setExercises((prev) => prev.filter((e) => e.id !== id));
+      addToast('Exercise deleted', 'success');
+    } catch (err) {
+      addToast(err.response?.data?.detail || 'Failed to delete exercise', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -115,8 +132,11 @@ export default function ExercisesPage() {
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
+            disabled={isSubmitting}
           />
-          <button type="submit">Add Exercise</button>
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : 'Add Exercise'}
+          </button>
         </form>
 
         <div className="library-filters">
@@ -143,14 +163,11 @@ export default function ExercisesPage() {
             />
             Show only exercises not yet added
           </label>
-          <button type="button" className="ghost-btn" onClick={addVisibleExercises}>
+          <button type="button" className="ghost-btn" onClick={addVisibleExercises} disabled={isSubmitting}>
             Add all visible
           </button>
         </div>
       </div>
-
-      {error && <p className="error">{error}</p>}
-      {notice && <p className="notice">{notice}</p>}
 
       {filteredLibrary.length === 0 ? (
         <div className="exercise-empty">
@@ -175,7 +192,7 @@ export default function ExercisesPage() {
                 </div>
                 <button
                   type="button"
-                  disabled={alreadyAdded}
+                  disabled={alreadyAdded || isSubmitting}
                   onClick={() => createExercise(exercise.name)}
                 >
                   {alreadyAdded ? 'Added' : 'Add to My Exercises'}
@@ -193,6 +210,7 @@ export default function ExercisesPage() {
             <tr>
               <th>Name</th>
               <th>Created</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -200,11 +218,30 @@ export default function ExercisesPage() {
               <tr key={exercise.id}>
                 <td>{exercise.name}</td>
                 <td>{new Date(exercise.created_at).toLocaleString()}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="delete-btn"
+                    onClick={() => setDeletingId(exercise.id)}
+                    aria-label="Delete exercise"
+                  >
+                    ✕
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {deletingId && (
+        <ConfirmDialog
+          title="Delete exercise?"
+          message="This will permanently remove this exercise. Any workouts using it will retain the exercise ID."
+          onConfirm={() => deleteExercise(deletingId)}
+          onCancel={() => setDeletingId(null)}
+        />
+      )}
     </section>
   );
 }

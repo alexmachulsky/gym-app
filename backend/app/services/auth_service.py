@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import TokenResponse
 
@@ -37,9 +37,11 @@ class AuthService:
     @staticmethod
     def build_token_response(user_id: str) -> TokenResponse:
         expires = timedelta(minutes=settings.access_token_expire_minutes)
-        token = create_access_token(subject=user_id, expires_delta=expires)
+        access_token = create_access_token(subject=user_id, expires_delta=expires)
+        refresh_token = create_refresh_token(subject=user_id)
         return TokenResponse(
-            access_token=token,
+            access_token=access_token,
+            refresh_token=refresh_token,
             token_type='bearer',
             expires_in=settings.access_token_expire_minutes * 60,
         )

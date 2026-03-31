@@ -6,8 +6,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.core.logging import setup_logging
 from app.routes.auth import router as auth_router
 from app.routes.body_metrics import router as body_metrics_router
@@ -20,13 +23,15 @@ setup_logging(settings.log_level)
 logger = logging.getLogger('gym_tracker')
 
 app = FastAPI(title=settings.app_name, version='1.0.0')
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_frontend_origins(),
     allow_credentials=True,
-    allow_methods=['*'],
-    allow_headers=['*'],
+    allow_methods=['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allow_headers=['Authorization', 'Content-Type'],
 )
 
 
@@ -90,6 +95,11 @@ async def validation_exception_handler(_: Request, exc: RequestValidationError):
 @app.on_event('startup')
 async def on_startup():
     logger.info('Application startup')
+    if settings.secret_key == 'change-me-in-production':
+        logger.critical(
+            'SECRET_KEY is set to the default insecure value. '
+            'Set a strong SECRET_KEY in your environment before deploying to production.'
+        )
 
 
 @app.on_event('shutdown')
