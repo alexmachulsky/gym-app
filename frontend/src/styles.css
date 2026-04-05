@@ -236,13 +236,10 @@ a {
 }
 
 .panel {
-  border: 1px solid rgba(191, 210, 232, 0.86);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.82)),
-    var(--panel-glass);
+  border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: var(--radius-lg);
   padding: 1.3rem;
-  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
@@ -254,12 +251,15 @@ a {
 
 .panel-heading h2 {
   margin: 0;
-  font-size: clamp(1.25rem, 1.7vw, 1.5rem);
+  font-size: clamp(1.2rem, 1.7vw, 1.5rem);
+  font-weight: 700;
+  color: var(--text);
 }
 
 .panel-heading p {
   margin: 0;
-  color: var(--ink-500);
+  color: var(--text-muted);
+  font-size: 0.92rem;
 }
 
 .stats-grid {
@@ -270,22 +270,31 @@ a {
 }
 
 .stat-card {
-  border: 1px solid rgba(191, 210, 232, 0.84);
-  background: linear-gradient(170deg, #ffffff, #f4f9ff);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
   border-radius: var(--radius-md);
-  padding: 0.9rem;
+  padding: 1rem;
+  transition: border-color 200ms ease;
+}
+
+.stat-card:hover {
+  border-color: var(--lime-border);
 }
 
 .stat-card h3 {
   margin: 0;
-  font-size: 0.88rem;
-  color: var(--ink-500);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .stat-card p {
-  margin: 0.38rem 0 0;
-  font-size: 1.5rem;
+  margin: 0.4rem 0 0;
+  font-size: 1.6rem;
   font-weight: 800;
+  color: var(--lime);
 }
 
 .auth-shell {
@@ -608,19 +617,19 @@ button:disabled {
 
 .history-list h3 {
   margin: 0;
+  color: var(--text);
 }
 
 .history-card {
-  border: 1px solid rgba(191, 210, 232, 0.82);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0.84rem;
-  background: linear-gradient(180deg, #fff, #f6fafe);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  padding: 0.9rem;
+  background: var(--surface-2);
+  transition: border-color 180ms ease;
 }
 
 .history-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 20px rgba(15, 23, 42, 0.12);
+  border-color: var(--lime-border);
 }
 
 .history-header {
@@ -633,12 +642,13 @@ button:disabled {
 
 .history-header h4 {
   margin: 0;
+  color: var(--text);
 }
 
 .history-header span {
   font-size: 0.84rem;
-  color: var(--ink-500);
-  font-weight: 700;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .history-card ul {
@@ -654,8 +664,13 @@ button:disabled {
   justify-content: space-between;
   gap: 0.6rem;
   align-items: baseline;
-  border-bottom: 1px dashed rgba(191, 210, 232, 0.8);
+  border-bottom: 1px solid var(--border-dim);
   padding-bottom: 0.3rem;
+  color: var(--text-muted);
+}
+
+.history-card li strong {
+  color: var(--text);
 }
 
 .history-card li:last-child {
