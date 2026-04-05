@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import safe_decode_access_token
+from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse, UserResponse
 from app.schemas.auth import RegisterRequest
 from app.services.auth_service import AuthService
+from app.utils.deps import get_current_user
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -37,3 +39,8 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
 
     return AuthService.build_token_response(user_id)
+
+
+@router.get('/me', response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user

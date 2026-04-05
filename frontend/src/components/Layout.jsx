@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import armsImage from '../assets/photos/arms.jpg';
@@ -10,11 +11,42 @@ import legsImage from '../assets/photos/legs.jpg';
 import mobilityImage from '../assets/photos/mobility.jpg';
 import olympicImage from '../assets/photos/olympic.jpg';
 import shouldersImage from '../assets/photos/shoulders.jpg';
+import api from '../api/client';
 import LogoMark from './LogoMark';
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [userEmail, setUserEmail] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCurrentUser() {
+      try {
+        const response = await api.get('/auth/me');
+        if (active) {
+          setUserEmail(response.data.email || '');
+        }
+      } catch {
+        if (active) {
+          setUserEmail('');
+        }
+      }
+    }
+
+    loadCurrentUser();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const userLabel = useMemo(() => {
+    if (!userEmail) return 'Athlete';
+    const username = userEmail.split('@')[0]?.trim();
+    return username || userEmail;
+  }, [userEmail]);
 
   const logout = () => {
     localStorage.removeItem('access_token');
@@ -75,6 +107,10 @@ export default function Layout() {
         <header className="topbar">
           <LogoMark />
           <nav className="main-nav">
+            <div className="user-pill" title={userEmail || 'Logged in user'}>
+              <span>User</span>
+              <strong>{userLabel}</strong>
+            </div>
             <NavLink to="/workouts">Workouts</NavLink>
             <NavLink to="/exercises">Exercises</NavLink>
             <NavLink to="/body-metrics">Body Metrics</NavLink>
