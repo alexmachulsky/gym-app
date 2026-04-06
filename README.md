@@ -1,49 +1,94 @@
 # ForgeMode
 
-Smart Gym Progress Tracker is a full-stack fitness analytics SaaS app with a React + Vite frontend, FastAPI backend, PostgreSQL database, Docker Compose local stack, and AWS EKS deployment assets.
+> Train with clarity. Improve with data.
+
+ForgeMode is a full-stack fitness analytics SaaS app for lifters who want more than a plain workout log. It combines a React + Vite SPA, a FastAPI backend, PostgreSQL persistence, Docker Compose local development, and AWS EKS deployment assets in one repo.
 
 [![CI](https://github.com/alexmachulsky/gym-app/actions/workflows/ci.yml/badge.svg)](https://github.com/alexmachulsky/gym-app/actions/workflows/ci.yml)
 [![Publish Docker Images](https://github.com/alexmachulsky/gym-app/actions/workflows/publish-images.yml/badge.svg)](https://github.com/alexmachulsky/gym-app/actions/workflows/publish-images.yml)
 [![Deploy to EKS](https://github.com/alexmachulsky/gym-app/actions/workflows/deploy-k8s.yml/badge.svg)](https://github.com/alexmachulsky/gym-app/actions/workflows/deploy-k8s.yml)
 
-## Product Snapshot
+## Why This Repo Is Interesting
 
-ForgeMode combines a public marketing site with an authenticated training dashboard for lifters who want more than a plain workout log.
+ForgeMode is built as a product, not just a CRUD demo:
 
-- JWT auth with access and refresh tokens
-- Workout logging with set-level entries, rest timer, active workout tools, and workout generation
-- Exercise library with built-in templates and custom exercise support
-- Body metrics tracking for weight, body fat, and muscle mass
-- Progress analytics for volume, estimated 1RM, and plateau detection
-- Workout templates, goals, settings, admin, and export flows
-- AI Coach workflows for tips, parsing, and guided training assistance
-- Free and Pro tiers with usage limits and billing hooks
-- Dockerized local development plus Kubernetes and Terraform deployment assets
+- Public marketing pages and an authenticated app shell live in the same frontend
+- JWT auth uses access and refresh tokens, with frontend auto-refresh and queued request replay
+- The backend follows a strict route -> service -> database-query structure
+- Free and Pro tiers are enforced in the application layer, not just in UI copy
+- AI, billing, email, export, admin, and equipment-profile flows are already wired into the platform surface
+- The project ships with both a Docker-first local workflow and EKS-ready deployment assets
 
-## Current UX
+## Experience At A Glance
 
-The current UI uses a dark, neon-lime visual system across:
+| Landing page | Workout command center |
+|---|---|
+| ![ForgeMode landing page](docs/images/readme-home.png) | ![ForgeMode workout dashboard](docs/images/readme-workouts.png) |
 
-- Public pages: landing, pricing, terms, privacy, login, register, forgot/reset password, verify email
-- Authenticated pages: workouts, exercises, templates, body metrics, progress, goals, AI coach, settings, admin
+The current UI uses a dark, neon-lime visual system across the public site, auth flows, and the logged-in training dashboard.
 
-The app shell uses route-specific banners and gym photography, while the marketing pages focus on signup and pricing conversion.
+## What ForgeMode Does
+
+### For users
+
+- Log workouts with set-level detail, notes, effort, and timers
+- Build a custom exercise library from built-in movement templates
+- Track body metrics over time
+- Analyze progression with volume, estimated 1RM, and plateau detection
+- Save workout templates, set goals, and manage training preferences
+- Upgrade into AI Coach, advanced analytics, export, and equipment profile workflows
+
+### For developers
+
+- React + Vite frontend with a centralized Axios client and token refresh flow
+- FastAPI service layer with SQLAlchemy ORM and Alembic migrations
+- Owner-scoped resource handling, Pro gates, and free-tier limits
+- Docker Compose local stack with frontend, backend, and PostgreSQL
+- GitHub Actions pipelines for tests, builds, image publishing, and Kubernetes deployment
+- Terraform and Kubernetes manifests for AWS EKS rollout
+
+## Product Areas
+
+| Area | What you get |
+|---|---|
+| Authentication | Register, login, refresh token, verify email, forgot password, reset password |
+| Workout Tracking | Session logging, rest timer, workout generator hooks, active workout utilities, workout history |
+| Exercise Library | Built-in exercise catalog plus custom exercise creation |
+| Body Metrics | Weight, body fat, and muscle mass tracking |
+| Progress Analytics | Volume, estimated 1RM, charting, plateau detection |
+| Templates & Goals | Reusable workout templates and training goals |
+| AI Coach | Coaching, parsing, and workout-assistance routes and UI |
+| SaaS Controls | Billing, admin, export, equipment profiles, settings, usage limits |
+
+## Free vs Pro Model
+
+The backend currently enforces these limits and feature gates:
+
+| Capability | Free | Pro |
+|---|---:|---:|
+| Custom exercises | Up to 10 | Unlimited |
+| Workout templates | Up to 3 | Unlimited |
+| Goals | Up to 2 | Unlimited |
+| AI Coach | No | Yes |
+| Export | No | Yes |
+| Equipment profiles | No | Yes |
+| Advanced charts | No | Yes |
+| Workout generator | No | Yes |
 
 ## Architecture
 
-```text
-React + Vite SPA
-  |
-Axios API client with JWT refresh/retry logic
-  |
-FastAPI application
-  |
-Service layer + SQLAlchemy ORM
-  |
-PostgreSQL
+```mermaid
+flowchart LR
+    A[React + Vite SPA] -->|JWT + refresh retry| B[FastAPI API]
+    B --> C[Service layer]
+    C --> D[(PostgreSQL)]
+    B --> E[Stripe integration]
+    B --> F[Groq AI integration]
+    B --> G[Resend email integration]
+    B --> H[Sentry monitoring]
 ```
 
-Backend follows a strict route -> service -> database-query pattern. FastAPI routes stay thin, services own business logic, and Pydantic schemas are kept separate from ORM models.
+The backend stays disciplined: routes stay thin, services own business logic, and schemas stay separate from ORM models. On the frontend, a single Axios client injects tokens, handles refresh, and retries queued requests after re-authentication.
 
 ## Tech Stack
 
@@ -53,59 +98,29 @@ Backend follows a strict route -> service -> database-query pattern. FastAPI rou
 | Backend | Python 3.11, FastAPI, SQLAlchemy, Alembic, Pydantic Settings |
 | Auth & Security | JWT, bcrypt/passlib, refresh tokens, slowapi rate limiting |
 | Database | PostgreSQL 16, psycopg v3 |
+| AI | Groq-backed service hooks |
 | Payments | Stripe integration points |
-| AI | Groq-backed AI service hooks |
 | Email | Resend integration points |
 | Observability | Structured logging, health checks, optional Sentry |
-| Testing | pytest unit and integration tests |
-| Dev & Deploy | Docker Compose, GitHub Actions, GHCR, Terraform, Kubernetes/EKS |
-
-## Repository Layout
-
-```text
-gym-app/
-├── backend/
-│   ├── app/
-│   │   ├── core/          # config, database, security, logging, rate limiter
-│   │   ├── models/        # SQLAlchemy models
-│   │   ├── routes/        # FastAPI route modules
-│   │   ├── schemas/       # Pydantic request/response models
-│   │   ├── services/      # business logic
-│   │   └── utils/         # shared dependencies and helpers
-│   ├── alembic/           # migrations
-│   └── tests/             # unit + integration coverage
-├── frontend/
-│   ├── public/
-│   └── src/
-│       ├── api/
-│       ├── assets/
-│       ├── components/
-│       ├── data/
-│       ├── hooks/
-│       ├── pages/
-│       └── utils/
-├── infra/terraform/aws/
-├── k8s/base/
-├── docker-compose.yml
-└── docker-compose.prod.yml
-```
+| Testing | pytest unit and integration suites |
+| Delivery | Docker Compose, GitHub Actions, GHCR, Terraform, Kubernetes/EKS |
 
 ## Quick Start
 
-### Full stack with Docker Compose
+### Recommended: full stack with Docker Compose
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Open:
+Open the stack at:
 
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:8000`
 - Swagger docs: `http://localhost:8000/docs`
 
-Set a real `SECRET_KEY` in `.env` before using the app beyond local experimentation.
+Set a real `SECRET_KEY` in `.env` before doing anything beyond local experimentation. The default development value logs a critical warning on startup for a reason.
 
 ## Local Development
 
@@ -141,55 +156,54 @@ alembic upgrade head
 kubectl kustomize k8s/base >/dev/null
 ```
 
-## Major App Areas
+## How Progress Is Calculated
 
-### Authentication
-
-- Register, login, refresh token, verify email, forgot password, reset password
-- Access token lifetime: 60 minutes
-- Refresh token lifetime: 30 days
-- Rate limiting on `/auth/register` and `/auth/login`
-
-### Workout Tracking
-
-- Session logging with sets, reps, weight, duration, effort, and notes
-- Rest timer and active-workout support
-- Workout generation and import flows
-- Owner-scoped workout history
-
-### Exercise Management
-
-- Built-in exercise library with category coverage
-- Custom exercises
-- Free-tier limits on exercise creation
-
-### Progress and Metrics
-
-- Body metrics history
-- Progress charts for volume and estimated 1RM
-- Plateau detection based on the last three sessions
-
-Progression formulas:
+Progression logic lives in `backend/app/services/progression_service.py`.
 
 - `volume = weight * reps * sets`
 - `estimated_1RM = weight * (1 + reps / 30)`
+- Plateau detection flags cases where the last 3 sessions fail to show a strict increase in either signal
 
-### Templates, Goals, and AI
+## Testing
 
-- Workout templates
-- Goals and streak-oriented planning
-- AI Coach endpoints and parsing/coaching workflows
-- Pro gating for advanced features
+### Backend
 
-### Billing and Plans
+```bash
+cd backend
+pytest -q
+pytest tests/unit/
+pytest tests/integration/
+```
 
-Free users are limited to:
+Backend tests use an in-memory SQLite database configured in `backend/tests/conftest.py`, so local Postgres is not required for test runs.
 
-- 10 exercises
-- 3 templates
-- 2 goals
+### Frontend production build
 
-Pro unlocks advanced charts, exports, equipment profiles, workout generator, and AI Coach workflows.
+```bash
+cd frontend
+npm ci
+npm run build
+```
+
+## Deployment Story
+
+### Local
+
+- `postgres`
+- `backend`
+- `frontend` served through nginx
+
+### CI/CD
+
+- `ci.yml` runs backend tests, frontend build checks, Kubernetes manifest validation, and Docker verification
+- `publish-images.yml` publishes backend and frontend images to GHCR
+- `deploy-k8s.yml` provides a manual EKS deployment workflow
+
+### Infrastructure
+
+- Terraform: `infra/terraform/aws/`
+- Kubernetes manifests: `k8s/base/`
+- Deployment guide: `k8s/README.md`
 
 ## API Surface
 
@@ -220,9 +234,9 @@ The backend currently exposes route groups for:
 | `SECRET_KEY` | Yes | `change-me-in-production` | JWT signing key |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `60` | Access token lifetime |
 | `FRONTEND_ORIGIN` | No | `http://localhost:5173` | Primary CORS origin |
-| `FRONTEND_ORIGINS` | No | `http://localhost:5173,http://127.0.0.1:5173` | Allowed origins |
+| `FRONTEND_ORIGINS` | No | `http://localhost:5173,http://127.0.0.1:5173` | Allowed frontend origins |
+| `APP_URL` | No | `http://localhost:5173` | Redirects and email links |
 | `VITE_API_BASE_URL` | No | `/api` | Frontend API base path |
-| `APP_URL` | No | `http://localhost:5173` | Email links and Stripe redirects |
 
 ### Optional integrations
 
@@ -233,55 +247,43 @@ The backend currently exposes route groups for:
 | `RESEND_API_KEY`, `FROM_EMAIL` | Transactional email delivery |
 | `SENTRY_DSN` | Error monitoring |
 
-## Testing
+## Repository Layout
 
-### Backend
-
-```bash
-cd backend
-pytest -q
-pytest tests/unit/
-pytest tests/integration/
+```text
+gym-app/
+├── backend/
+│   ├── app/
+│   │   ├── core/          # config, database, security, logging, rate limiter
+│   │   ├── models/        # SQLAlchemy models
+│   │   ├── routes/        # FastAPI route modules
+│   │   ├── schemas/       # Pydantic request/response models
+│   │   ├── services/      # business logic
+│   │   └── utils/         # shared dependencies and helpers
+│   ├── alembic/           # migrations
+│   └── tests/             # unit + integration coverage
+├── frontend/
+│   ├── public/
+│   └── src/
+│       ├── api/
+│       ├── assets/
+│       ├── components/
+│       ├── data/
+│       ├── hooks/
+│       ├── pages/
+│       └── utils/
+├── docs/
+├── infra/terraform/aws/
+├── k8s/base/
+├── docker-compose.yml
+└── docker-compose.prod.yml
 ```
-
-Tests use an in-memory SQLite database configured in `backend/tests/conftest.py`, so local Postgres is not required for test runs.
-
-### Frontend production build
-
-```bash
-cd frontend
-npm ci
-npm run build
-```
-
-## Deployment
-
-### Docker Compose
-
-The local composed stack includes:
-
-- `postgres`
-- `backend`
-- `frontend` served through nginx
-
-### GitHub Actions
-
-- `ci.yml`: tests, build checks, Kubernetes manifest validation, Docker checks
-- `publish-images.yml`: publishes container images to GHCR
-- `deploy-k8s.yml`: manual EKS deployment workflow
-
-### Infrastructure
-
-- Terraform: `infra/terraform/aws/`
-- Kubernetes manifests: `k8s/base/`
-- EKS deployment guide: `k8s/README.md`
 
 ## Troubleshooting
 
 - Backend unavailable: check `http://localhost:8000/health`
 - Frontend API issues outside Docker: verify `VITE_API_BASE_URL`
 - Compose startup problems: run `docker compose logs backend frontend postgres`
-- Local reset:
+- Clean local reset:
 
 ```bash
 docker compose down -v
