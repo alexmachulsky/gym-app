@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 import api from '../api/client';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { EXERCISE_LIBRARY, LIBRARY_CATEGORIES } from '../data/exerciseLibrary';
+import ExerciseDetailModal from '../components/ExerciseDetailModal';
+import UsageMeter from '../components/UsageMeter';
+import { EXERCISE_LIBRARY, LIBRARY_CATEGORIES, EQUIPMENT_TYPES } from '../data/exerciseLibrary';
 import { useToast } from '../hooks/useToast';
 
 export default function ExercisesPage() {
@@ -10,10 +12,12 @@ export default function ExercisesPage() {
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
+  const [equipmentFilter, setEquipmentFilter] = useState('All');
   const [showOnlyMissing, setShowOnlyMissing] = useState(false);
   const [exercises, setExercises] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [detailExercise, setDetailExercise] = useState(null);
 
   const loadExercises = async () => {
     const response = await api.get('/exercises');
@@ -32,21 +36,32 @@ export default function ExercisesPage() {
   const filteredLibrary = useMemo(() => {
     const base = EXERCISE_LIBRARY.filter((exercise) => {
       const categoryMatch = category === 'All' || exercise.category === category;
+      const equipmentMatch = equipmentFilter === 'All' || exercise.equipment === equipmentFilter;
       const searchMatch =
         search.trim() === '' ||
         exercise.name.toLowerCase().includes(search.toLowerCase()) ||
         exercise.focus.toLowerCase().includes(search.toLowerCase());
 
-      return categoryMatch && searchMatch;
+      return categoryMatch && equipmentMatch && searchMatch;
     });
 
     if (!showOnlyMissing) return base;
     return base.filter((exercise) => !existingExerciseNames.has(exercise.name.toLowerCase()));
-  }, [category, existingExerciseNames, search, showOnlyMissing]);
+  }, [category, equipmentFilter, existingExerciseNames, search, showOnlyMissing]);
 
   const createExercise = async (exerciseName) => {
     try {
-      await api.post('/exercises', { name: exerciseName });
+      const libraryEntry = EXERCISE_LIBRARY.find(
+        (e) => e.name.toLowerCase() === exerciseName.trim().toLowerCase()
+      );
+      const payload = { name: exerciseName };
+      if (libraryEntry) {
+        payload.category = libraryEntry.category;
+        payload.muscle_group = libraryEntry.focus;
+        payload.description = libraryEntry.description;
+        payload.equipment = libraryEntry.equipment;
+      }
+      await api.post('/exercises', payload);
       setName('');
       await loadExercises();
       addToast(`Added "${exerciseName}" to your exercise list.`, 'success');
@@ -77,7 +92,13 @@ export default function ExercisesPage() {
 
     setIsSubmitting(true);
     try {
-      await Promise.all(addable.map((exercise) => api.post('/exercises', { name: exercise.name })));
+      await Promise.all(addable.map((exercise) => api.post('/exercises', {
+        name: exercise.name,
+        category: exercise.category,
+        muscle_group: exercise.focus,
+        description: exercise.description,
+        equipment: exercise.equipment,
+      })));
       await loadExercises();
       addToast(`Added ${addable.length} exercises from the current view.`, 'success');
     } catch (err) {
@@ -126,6 +147,7 @@ export default function ExercisesPage() {
       </div>
 
       <div className="exercise-tools">
+        <UsageMeter resource="exercises" label="Custom exercises" />
         <form className="create-exercise-form" onSubmit={handleSubmit}>
           <input
             placeholder="Create a custom exercise"
@@ -149,6 +171,13 @@ export default function ExercisesPage() {
             {LIBRARY_CATEGORIES.map((item) => (
               <option key={item} value={item}>
                 {item}
+              </option>
+            ))}
+          </select>
+          <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)}>
+            {EQUIPMENT_TYPES.map((item) => (
+              <option key={item} value={item}>
+                {item === 'All' ? 'All Equipment' : item}
               </option>
             ))}
           </select>
@@ -180,13 +209,14 @@ export default function ExercisesPage() {
             const alreadyAdded = existingExerciseNames.has(exercise.name.toLowerCase());
             return (
               <article key={exercise.name} className="exercise-library-card stagger-item">
-                <img src={exercise.image} alt={exercise.name} loading="lazy" />
+                <img src={exercise.image} alt={exercise.name} loading="lazy" onClick={() => setDetailExercise(exercise)} style={{ cursor: 'pointer' }} />
                 <div>
                   <div className="chip-row">
                     <span className="chip">{exercise.category}</span>
                     <span className="chip muted">{exercise.difficulty}</span>
+                    {exercise.equipment && <span className="chip muted">{exercise.equipment}</span>}
                   </div>
-                  <h3>{exercise.name}</h3>
+                  <h3 style={{ cursor: 'pointer' }} onClick={() => setDetailExercise(exercise)}>{exercise.name}</h3>
                   <p>{exercise.description}</p>
                   <p className="focus-line">Focus: {exercise.focus}</p>
                 </div>
@@ -209,6 +239,9 @@ export default function ExercisesPage() {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Category</th>
+              <th>Muscle Group</th>
+              <th>Equipment</th>
               <th>Created</th>
               <th></th>
             </tr>
@@ -217,6 +250,9 @@ export default function ExercisesPage() {
             {exercises.map((exercise) => (
               <tr key={exercise.id}>
                 <td>{exercise.name}</td>
+                <td>{exercise.category || '—'}</td>
+                <td>{exercise.muscle_group || '—'}</td>
+                <td>{exercise.equipment || '—'}</td>
                 <td>{new Date(exercise.created_at).toLocaleString()}</td>
                 <td>
                   <button
@@ -240,6 +276,13 @@ export default function ExercisesPage() {
           message="This will permanently remove this exercise. Any workouts using it will retain the exercise ID."
           onConfirm={() => deleteExercise(deletingId)}
           onCancel={() => setDeletingId(null)}
+        />
+      )}
+
+      {detailExercise && (
+        <ExerciseDetailModal
+          exercise={detailExercise}
+          onClose={() => setDetailExercise(null)}
         />
       )}
     </section>

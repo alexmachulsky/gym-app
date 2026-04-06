@@ -27,7 +27,7 @@ function validate(form) {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '' });
   const [touched, setTouched] = useState({});
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,7 +46,7 @@ export default function RegisterPage() {
 
     try {
       await api.post('/auth/register', form);
-      navigate('/login', { replace: true });
+      navigate('/login', { replace: true, state: { registered: true } });
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed');
     } finally {
@@ -68,6 +68,15 @@ export default function RegisterPage() {
         <h2>Create account</h2>
         <p className="subtitle">Use an email and password to get started.</p>
         <form onSubmit={handleSubmit} noValidate>
+          <div>
+            <input
+              type="text"
+              placeholder="Name (optional)"
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              disabled={isSubmitting}
+            />
+          </div>
           <div>
             <input
               type="email"
@@ -97,6 +106,9 @@ export default function RegisterPage() {
           </button>
         </form>
         {error && <p className="error">{error}</p>}
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          We'll send a verification email after you sign up.
+        </p>
         <p>
           Already have an account? <Link to="/login">Login</Link>
         </p>

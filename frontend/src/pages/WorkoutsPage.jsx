@@ -1,12 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import api from '../api/client';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { getExerciseImageByName } from '../data/exerciseLibrary';
+import RestTimer from '../components/RestTimer';
+import ExerciseSwapModal from '../components/ExerciseSwapModal';
+import GenerateWorkoutModal from '../components/GenerateWorkoutModal';
+import ActiveWorkout from '../components/ActiveWorkout';
+import WorkoutShareCard from '../components/WorkoutShareCard';
+import { getExerciseImageByName, getStretchSuggestionsForExercises } from '../data/exerciseLibrary';
 import { useToast } from '../hooks/useToast';
+import { parseWorkoutText } from '../utils/workoutParser';
 
 const makeSetRow = () => ({ exercise_id: '', weight: '', reps: '', sets: '' });
+
+function formatElapsed(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return h > 0
+    ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    : `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 function calculateTotalVolume(workouts) {
   return workouts.reduce((total, workout) => {
@@ -22,10 +37,34 @@ export default function WorkoutsPage() {
   const [workoutDate, setWorkoutDate] = useState('');
   const [dateTouched, setDateTouched] = useState(false);
   const [rows, setRows] = useState([makeSetRow()]);
+  const [notes, setNotes] = useState('');
+  const [effortRating, setEffortRating] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('');
   const [exercises, setExercises] = useState([]);
   const [workouts, setWorkouts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [lastRecords, setLastRecords] = useState([]);
+
+  // Running workout timer
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef(null);
+  const startedAtRef = useRef(null);
+
+  // Workout history search/filter
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+
+  // Swap modal
+  const [swapRowIndex, setSwapRowIndex] = useState(null);
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [activeMode, setActiveMode] = useState(false);
+  const [stretchTips, setStretchTips] = useState([]);
+  const [sharingWorkout, setSharingWorkout] = useState(null);
 
   const dateError = dateTouched && workoutDate && workoutDate > new Date().toISOString().slice(0, 10)
     ? 'Workout date cannot be in the future'
@@ -56,7 +95,131 @@ export default function WorkoutsPage() {
 
   useEffect(() => {
     loadData().catch(() => addToast('Failed to load workout data', 'error'));
+
+    // Check for template prefill from TemplatesPage
+    const prefill = sessionStorage.getItem('template_prefill');
+    if (prefill) {
+      try {
+        const parsed = JSON.parse(prefill);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRows(parsed);
+          setWorkoutDate(new Date().toISOString().slice(0, 10));
+          addToast('Template loaded — adjust and log.', 'info');
+        }
+      } catch { /* ignore invalid data */ }
+      sessionStorage.removeItem('template_prefill');
+    }
+
+    // Check for AI-parsed workout from AICoachPage
+    const aiParsed = sessionStorage.getItem('ai_parsed_workout');
+    if (aiParsed) {
+      try {
+        const parsed = JSON.parse(aiParsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRows(parsed);
+          setWorkoutDate(new Date().toISOString().slice(0, 10));
+          addToast('AI workout loaded — review and log.', 'info');
+        }
+      } catch { /* ignore invalid data */ }
+      sessionStorage.removeItem('ai_parsed_workout');
+    }
   }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => clearInterval(timerRef.current), []);
+
+  const startTimer = useCallback(() => {
+    startedAtRef.current = new Date();
+    setElapsed(0);
+    setTimerRunning(true);
+    timerRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAtRef.current.getTime()) / 1000));
+    }, 1000);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    clearInterval(timerRef.current);
+    setTimerRunning(false);
+  }, []);
+
+  const repeatWorkout = useCallback((workout) => {
+    setWorkoutDate(new Date().toISOString().slice(0, 10));
+    setRows(
+      workout.sets.map((s) => ({
+        exercise_id: s.exercise_id,
+        weight: String(s.weight),
+        reps: String(s.reps),
+        sets: String(s.sets),
+      }))
+    );
+    setNotes('');
+    setEffortRating('');
+    setDurationMinutes('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    addToast('Workout pre-filled — adjust and log.', 'info');
+  }, [addToast]);
+
+  const filteredWorkouts = useMemo(() => {
+    return workouts.filter((w) => {
+      if (historyDateFrom && w.date < historyDateFrom) return false;
+      if (historyDateTo && w.date > historyDateTo) return false;
+      if (historySearch.trim()) {
+        const q = historySearch.toLowerCase();
+        const hasMatch = w.sets.some((s) => {
+          const name = exerciseNameById.get(s.exercise_id) || '';
+          return name.toLowerCase().includes(q);
+        });
+        if (!hasMatch) return false;
+      }
+      return true;
+    });
+  }, [workouts, historySearch, historyDateFrom, historyDateTo, exerciseNameById]);
+
+  const useGeneratedWorkout = useCallback((suggestions) => {
+    const exerciseNameToId = new Map(exercises.map((e) => [e.name.toLowerCase(), e.id]));
+    const newRows = suggestions.map((s) => ({
+      exercise_id: exerciseNameToId.get(s.exercise_name.toLowerCase()) || '',
+      weight: s.weight ? String(s.weight) : '',
+      reps: String(s.reps),
+      sets: String(s.sets),
+    }));
+    setRows(newRows.length > 0 ? newRows : [makeSetRow()]);
+    setWorkoutDate(new Date().toISOString().slice(0, 10));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    addToast('Generated workout loaded — adjust and log.', 'info');
+  }, [exercises, addToast]);
+
+  const importFromText = useCallback(() => {
+    const parsed = parseWorkoutText(importText);
+    if (parsed.length === 0) {
+      addToast('No valid lines found. Use format: Exercise 3x8 @80', 'error');
+      return;
+    }
+    const exerciseNameToId = new Map(exercises.map((e) => [e.name.toLowerCase(), e.id]));
+    const newRows = parsed.map((p) => ({
+      exercise_id: exerciseNameToId.get(p.name.toLowerCase()) || '',
+      weight: String(p.weight),
+      reps: String(p.reps),
+      sets: String(p.sets),
+    }));
+    setRows(newRows);
+    setWorkoutDate(new Date().toISOString().slice(0, 10));
+    setShowImport(false);
+    setImportText('');
+    addToast(`Imported ${parsed.length} exercise(s) — review and log.`, 'info');
+  }, [importText, exercises, addToast]);
+
+  const showStretchSuggestions = () => {
+    const selectedNames = rows
+      .map((r) => exerciseNameById.get(r.exercise_id))
+      .filter(Boolean);
+    if (selectedNames.length === 0) {
+      addToast('Add exercises first to see stretch suggestions', 'info');
+      return;
+    }
+    const tips = getStretchSuggestionsForExercises(selectedNames);
+    setStretchTips(tips.length > 0 ? tips : ['No specific suggestions — try a general warm-up.']);
+  };
 
   const updateRow = (index, key, value) => {
     const clone = [...rows];
@@ -85,12 +248,23 @@ export default function WorkoutsPage() {
         reps: Number(row.reps),
         sets: Number(row.sets),
       })),
+      notes: notes || null,
+      effort_rating: effortRating ? Number(effortRating) : null,
+      duration_seconds: timerRunning ? elapsed : (durationMinutes ? Number(durationMinutes) * 60 : null),
     };
 
     try {
-      await api.post('/workouts', payload);
+      const res = await api.post('/workouts', payload);
       setRows([makeSetRow()]);
       setWorkoutDate('');
+      setNotes('');
+      setEffortRating('');
+      setDurationMinutes('');
+      if (res.data.new_records && res.data.new_records.length > 0) {
+        setLastRecords(res.data.new_records);
+        res.data.new_records.forEach((r) => addToast(`🏆 PR! ${r.exercise_name}: ${r.record_type} → ${r.new_value}`, 'success'));
+      }
+      stopTimer();
       await loadData();
       addToast('Workout logged successfully', 'success');
     } catch (err) {
@@ -134,6 +308,41 @@ export default function WorkoutsPage() {
         </article>
       </div>
 
+      <div className="workout-timer-bar">
+        {timerRunning ? (
+          <>
+            <span className="timer-badge running">⏱ {formatElapsed(elapsed)}</span>
+            <button type="button" className="ghost-btn" onClick={stopTimer} style={{ width: 'auto' }}>Stop Timer</button>
+          </>
+        ) : (
+          <button type="button" className="ghost-btn" onClick={startTimer} style={{ width: 'auto' }}>▶ Start Workout Timer</button>
+        )}
+        <button type="button" className="ghost-btn" onClick={() => setShowGenerate(true)} style={{ width: 'auto' }}>⚡ Generate Workout</button>
+        <button type="button" className="ghost-btn" onClick={() => setShowImport(true)} style={{ width: 'auto' }}>📋 Import Text</button>
+        <button type="button" className="ghost-btn" onClick={showStretchSuggestions} style={{ width: 'auto' }}>🧘 Warm-Up Tips</button>
+        <button type="button" className="ghost-btn" onClick={() => setActiveMode(true)} style={{ width: 'auto' }}>🏋️ Active Mode</button>
+      </div>
+
+      {stretchTips.length > 0 && (
+        <div className="stretch-tips">
+          <div className="stretch-tips-header">
+            <strong>Suggested Warm-Up / Stretches</strong>
+            <button type="button" className="ghost-btn" onClick={() => setStretchTips([])} style={{ width: 'auto', padding: '0.2rem 0.5rem' }}>✕</button>
+          </div>
+          <ul>{stretchTips.map((t, i) => <li key={i}>{t}</li>)}</ul>
+        </div>
+      )}
+
+      {activeMode ? (
+        <ActiveWorkout
+          exercises={exercises}
+          exerciseNameById={exerciseNameById}
+          onFinish={() => { setActiveMode(false); loadData(); }}
+          onCancel={() => setActiveMode(false)}
+        />
+      ) : (
+      <>
+      <div className="workout-form-rest-wrap">
       <form className="workout-form" onSubmit={createWorkout}>
         <label>
           Workout Date
@@ -148,6 +357,36 @@ export default function WorkoutsPage() {
           />
           {dateError && <p className="field-error">{dateError}</p>}
         </label>
+
+        <div className="workout-meta-row">
+          <label>
+            Duration (min)
+            <input
+              type="number" min="1" max="600" placeholder="e.g. 60"
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </label>
+          <label>
+            Effort (1-10)
+            <input
+              type="number" min="1" max="10" placeholder="e.g. 7"
+              value={effortRating}
+              onChange={(e) => setEffortRating(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </label>
+          <label>
+            Notes
+            <input
+              placeholder="Session notes…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </label>
+        </div>
 
         <div className="set-grid">
           {rows.map((row, index) => {
@@ -197,9 +436,16 @@ export default function WorkoutsPage() {
                     required
                     disabled={isSubmitting}
                   />
-                  <button type="button" className="ghost-btn" onClick={() => removeRow(index)} disabled={isSubmitting}>
-                    Remove
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    {row.exercise_id && (
+                      <button type="button" className="ghost-btn" onClick={() => setSwapRowIndex(index)} disabled={isSubmitting} title="Swap exercise">
+                        ⇄
+                      </button>
+                    )}
+                    <button type="button" className="ghost-btn" onClick={() => removeRow(index)} disabled={isSubmitting}>
+                      Remove
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -214,16 +460,71 @@ export default function WorkoutsPage() {
         </div>
       </form>
 
+      <RestTimer defaultSeconds={90} />
+      </div>
+
+      {lastRecords.length > 0 && (
+        <div className="pr-banner">
+          <h3>🏆 Personal Records</h3>
+          <div className="pr-list">
+            {lastRecords.map((r, i) => (
+              <div key={i} className="pr-item">
+                <strong>{r.exercise_name}</strong>
+                <span>{r.record_type === 'max_weight' ? 'Weight' : 'Volume'}: {r.new_value}{r.old_value != null ? ` (prev: ${r.old_value})` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="history-list">
-        <h3>Workout History</h3>
-        {workouts.length === 0 ? (
+        <div className="history-list-header">
+          <h3>Workout History</h3>
+          {workouts.length > 0 && (
+            <button
+              type="button"
+              className="ghost-btn"
+              style={{ width: 'auto' }}
+              onClick={() => {
+                const token = localStorage.getItem('access_token');
+                const link = document.createElement('a');
+                link.href = `${api.defaults.baseURL}/export/workouts?format=csv`;
+                fetch(link.href, { headers: { Authorization: `Bearer ${token}` } })
+                  .then(r => r.blob())
+                  .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'workouts.csv';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  })
+                  .catch(() => addToast('Export failed', 'error'));
+              }}
+            >
+              ⬇ Export CSV
+            </button>
+          )}
+        </div>
+
+        <div className="history-filters">
+          <input
+            placeholder="Search by exercise…"
+            value={historySearch}
+            onChange={(e) => setHistorySearch(e.target.value)}
+          />
+          <input type="date" value={historyDateFrom} onChange={(e) => setHistoryDateFrom(e.target.value)} />
+          <input type="date" value={historyDateTo} onChange={(e) => setHistoryDateTo(e.target.value)} />
+        </div>
+
+        {filteredWorkouts.length === 0 ? (
           <EmptyState
             icon="🏋️"
             title="No workouts yet"
             description="Log your first workout above to start tracking your progress."
           />
         ) : (
-          workouts.map((workout) => {
+          filteredWorkouts.map((workout) => {
             const volume = workout.sets.reduce(
               (sum, setItem) => sum + Number(setItem.weight) * Number(setItem.reps) * Number(setItem.sets),
               0
@@ -234,7 +535,10 @@ export default function WorkoutsPage() {
                 <div className="history-header">
                   <h4>{new Date(workout.date).toLocaleDateString()}</h4>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span>{Math.round(volume).toLocaleString()} volume</span>
+                    {workout.duration_seconds && <span className="chip muted">{Math.round(workout.duration_seconds / 60)} min</span>}
+                    {workout.effort_rating && <span className="chip">RPE {workout.effort_rating}</span>}
+                    {workout.estimated_calories && <span className="chip muted">{workout.estimated_calories} kcal</span>}
+                    <span>{Math.round(volume).toLocaleString()} vol</span>
                     <button
                       type="button"
                       className="delete-btn"
@@ -243,8 +547,26 @@ export default function WorkoutsPage() {
                     >
                       ✕
                     </button>
+                    <button
+                      type="button"
+                      className="repeat-btn"
+                      onClick={() => repeatWorkout(workout)}
+                      aria-label="Repeat workout"
+                    >
+                      ↻
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      style={{ width: 'auto', padding: '0.15rem 0.5rem', fontSize: '0.82rem' }}
+                      onClick={() => setSharingWorkout(workout)}
+                      aria-label="Share workout"
+                    >
+                      📤
+                    </button>
                   </div>
                 </div>
+                {workout.notes && <p style={{ margin: '0 0 0.4rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>{workout.notes}</p>}
                 <ul>
                   {workout.sets.map((setItem) => {
                     const name = exerciseNameById.get(setItem.exercise_id) || setItem.exercise_id;
@@ -270,6 +592,52 @@ export default function WorkoutsPage() {
           message="This will permanently remove this workout session and all its sets."
           onConfirm={() => deleteWorkout(deletingId)}
           onCancel={() => setDeletingId(null)}
+        />
+      )}
+
+      {swapRowIndex !== null && rows[swapRowIndex]?.exercise_id && (
+        <ExerciseSwapModal
+          exerciseId={rows[swapRowIndex].exercise_id}
+          exercises={exercises}
+          onSelect={(newId) => updateRow(swapRowIndex, 'exercise_id', newId)}
+          onClose={() => setSwapRowIndex(null)}
+        />
+      )}
+
+      </>
+      )}
+
+      {showGenerate && (
+        <GenerateWorkoutModal
+          onUse={useGeneratedWorkout}
+          onClose={() => setShowGenerate(false)}
+        />
+      )}
+
+      {showImport && (
+        <div className="modal-overlay" onClick={() => setShowImport(false)}>
+          <div className="modal-content import-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Import Workout from Text</h3>
+            <p className="modal-hint">One exercise per line. Format: <code>Exercise SetsxReps @Weight</code></p>
+            <textarea
+              rows={8}
+              placeholder={"Bench Press 3x8 @80\nSquat 5x5 @100\nPull Ups 3x10"}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+            />
+            <div className="button-row">
+              <button type="button" className="ghost-btn" onClick={() => setShowImport(false)}>Cancel</button>
+              <button type="button" onClick={importFromText}>Import</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sharingWorkout && (
+        <WorkoutShareCard
+          workout={sharingWorkout}
+          exerciseNameById={exerciseNameById}
+          onClose={() => setSharingWorkout(null)}
         />
       )}
     </section>

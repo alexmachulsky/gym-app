@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 import api from '../api/client';
 import LogoMark from '../components/LogoMark';
@@ -13,6 +13,7 @@ function validate(form) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [touched, setTouched] = useState({});
   const [error, setError] = useState('');
@@ -57,6 +58,11 @@ export default function LoginPage() {
       <div className="auth-card">
         <h2>Welcome back</h2>
         <p className="subtitle">Log in to continue your progression timeline.</p>
+        {location.state?.registered && (
+          <p style={{ color: 'var(--accent)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+            Account created! Check your email to verify, then log in.
+          </p>
+        )}
         <form onSubmit={handleSubmit} noValidate>
           <div>
             <input
@@ -87,6 +93,9 @@ export default function LoginPage() {
           </button>
         </form>
         {error && <p className="error">{error}</p>}
+        <p>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
         <p>
           No account? <Link to="/register">Create one</Link>
         </p>

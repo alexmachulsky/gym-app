@@ -18,6 +18,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [userEmail, setUserEmail] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -27,10 +28,12 @@ export default function Layout() {
         const response = await api.get('/auth/me');
         if (active) {
           setUserEmail(response.data.email || '');
+          setIsAdmin(response.data.is_admin || false);
         }
       } catch {
         if (active) {
           setUserEmail('');
+          setIsAdmin(false);
         }
       }
     }
@@ -50,6 +53,7 @@ export default function Layout() {
 
   const logout = () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     navigate('/login', { replace: true });
   };
 
@@ -80,11 +84,51 @@ export default function Layout() {
     },
     '/progress': {
       title: 'Strength Intelligence',
-      subtitle: 'Analyze plateau signals and progression patterns with confidence.',
+      subtitle: 'Analyze plateau signals, track PRs, and monitor muscle group balance.',
       image: olympicImage,
       imageAlt: 'Strength progression and olympic lifting visual',
       sideLeftImage: chestImage,
       sideRightImage: olympicImage,
+    },
+    '/templates': {
+      title: 'Workout Templates',
+      subtitle: 'Save your favourite routines and start sessions with a single tap.',
+      image: fullbodyImage,
+      imageAlt: 'Workout template planning visual',
+      sideLeftImage: cardioImage,
+      sideRightImage: backImage,
+    },
+    '/goals': {
+      title: 'Goals & Streaks',
+      subtitle: 'Set training targets and maintain momentum with streak tracking.',
+      image: legsImage,
+      imageAlt: 'Goal setting and streak tracking visual',
+      sideLeftImage: shouldersImage,
+      sideRightImage: armsImage,
+    },
+    '/ai-coach': {
+      title: 'AI Training Coach',
+      subtitle: 'Get exercise tips, parse workouts, and chat with your personal AI coach.',
+      image: olympicImage,
+      imageAlt: 'AI coaching and training intelligence visual',
+      sideLeftImage: fullbodyImage,
+      sideRightImage: chestImage,
+    },
+    '/settings': {
+      title: 'Settings',
+      subtitle: 'Customize your measurement preferences and training defaults.',
+      image: mobilityImage,
+      imageAlt: 'Settings and preferences visual',
+      sideLeftImage: coreImage,
+      sideRightImage: mobilityImage,
+    },
+    '/admin': {
+      title: 'Admin Dashboard',
+      subtitle: 'Manage users, subscriptions, and platform metrics.',
+      image: olympicImage,
+      imageAlt: 'Admin dashboard visual',
+      sideLeftImage: fullbodyImage,
+      sideRightImage: chestImage,
     },
   };
 
@@ -113,8 +157,13 @@ export default function Layout() {
             </div>
             <NavLink to="/workouts">Workouts</NavLink>
             <NavLink to="/exercises">Exercises</NavLink>
+            <NavLink to="/templates">Templates</NavLink>
             <NavLink to="/body-metrics">Body Metrics</NavLink>
             <NavLink to="/progress">Progress</NavLink>
+            <NavLink to="/goals">Goals</NavLink>
+            <NavLink to="/ai-coach">AI Coach</NavLink>
+            <NavLink to="/settings">Settings</NavLink>
+            {isAdmin && <NavLink to="/admin">Admin</NavLink>}
             <button type="button" className="ghost-btn" onClick={logout}>Logout</button>
           </nav>
         </header>

@@ -16,7 +16,7 @@ import { useToast } from '../hooks/useToast';
 
 export default function BodyMetricsPage() {
   const { addToast } = useToast();
-  const [form, setForm] = useState({ weight: '', date: '' });
+  const [form, setForm] = useState({ weight: '', date: '', body_fat: '', muscle_mass: '', notes: '' });
   const [touched, setTouched] = useState({});
   const [metrics, setMetrics] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,8 +67,11 @@ export default function BodyMetricsPage() {
       await api.post('/body-metrics', {
         weight: Number(form.weight),
         date: form.date,
+        body_fat_percentage: form.body_fat ? Number(form.body_fat) : null,
+        muscle_mass: form.muscle_mass ? Number(form.muscle_mass) : null,
+        notes: form.notes || null,
       });
-      setForm({ weight: '', date: '' });
+      setForm({ weight: '', date: '', body_fat: '', muscle_mass: '', notes: '' });
       await loadMetrics();
       addToast('Body metric saved', 'success');
     } catch (err) {
@@ -138,10 +141,60 @@ export default function BodyMetricsPage() {
           />
           {fieldErrors.date && <p className="field-error">{fieldErrors.date}</p>}
         </div>
+        <div>
+          <input
+            type="number" min="0" max="100" step="0.1" placeholder="Body Fat %"
+            value={form.body_fat}
+            onChange={(e) => setForm({ ...form, body_fat: e.target.value })}
+            disabled={isSubmitting}
+          />
+        </div>
+        <div>
+          <input
+            type="number" min="0" max="500" step="0.1" placeholder="Muscle Mass (kg)"
+            value={form.muscle_mass}
+            onChange={(e) => setForm({ ...form, muscle_mass: e.target.value })}
+            disabled={isSubmitting}
+          />
+        </div>
+        <div>
+          <input
+            placeholder="Notes"
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            disabled={isSubmitting}
+          />
+        </div>
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Saving…' : 'Add Metric'}
         </button>
       </form>
+
+      {metrics.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            className="ghost-btn"
+            style={{ width: 'auto' }}
+            onClick={() => {
+              const token = localStorage.getItem('access_token');
+              fetch(`${api.defaults.baseURL}/export/body-metrics?format=csv`, { headers: { Authorization: `Bearer ${token}` } })
+                .then(r => r.blob())
+                .then(blob => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'body-metrics.csv';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                })
+                .catch(() => addToast('Export failed', 'error'));
+            }}
+          >
+            ⬇ Export CSV
+          </button>
+        </div>
+      )}
 
       {metrics.length === 0 ? (
         <EmptyState
@@ -153,7 +206,11 @@ export default function BodyMetricsPage() {
         <>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={metrics.map((m) => ({ date: m.date, weight: Number(m.weight) }))}>
+              <LineChart data={metrics.map((m) => ({
+                date: m.date,
+                weight: Number(m.weight),
+                bodyFat: m.body_fat_percentage != null ? Number(m.body_fat_percentage) : null,
+              }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(191,210,232,0.6)" />
                 <XAxis
                   dataKey="date"
@@ -161,21 +218,43 @@ export default function BodyMetricsPage() {
                   tickFormatter={(d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 />
                 <YAxis
+                  yAxisId="left"
                   tick={{ fontSize: 11, fill: 'var(--ink-500)' }}
                   unit=" kg"
                   domain={['auto', 'auto']}
                 />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 11, fill: '#f59e0b' }}
+                  unit="%"
+                  domain={[0, 'auto']}
+                />
                 <Tooltip
-                  formatter={(v) => [`${Number(v).toFixed(1)} kg`, 'Weight']}
+                  formatter={(v, name) => {
+                    if (name === 'bodyFat') return [`${Number(v).toFixed(1)}%`, 'Body Fat'];
+                    return [`${Number(v).toFixed(1)} kg`, 'Weight'];
+                  }}
                   labelFormatter={(d) => new Date(d).toLocaleDateString()}
                 />
                 <Line
+                  yAxisId="left"
                   type="monotone"
                   dataKey="weight"
                   stroke="var(--accent)"
                   strokeWidth={2.5}
                   dot={{ fill: 'var(--accent)', r: 3 }}
                   activeDot={{ r: 5 }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="bodyFat"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={{ fill: '#f59e0b', r: 2 }}
+                  connectNulls
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -186,6 +265,9 @@ export default function BodyMetricsPage() {
               <tr>
                 <th>Date</th>
                 <th>Weight</th>
+                <th>Body Fat</th>
+                <th>Muscle Mass</th>
+                <th>Notes</th>
                 <th></th>
               </tr>
             </thead>
@@ -194,6 +276,9 @@ export default function BodyMetricsPage() {
                 <tr key={metric.id}>
                   <td>{new Date(metric.date).toLocaleDateString()}</td>
                   <td>{Number(metric.weight).toFixed(1)} kg</td>
+                  <td>{metric.body_fat_percentage != null ? `${metric.body_fat_percentage}%` : '–'}</td>
+                  <td>{metric.muscle_mass != null ? `${metric.muscle_mass} kg` : '–'}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{metric.notes || '–'}</td>
                   <td>
                     <button
                       type="button"
