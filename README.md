@@ -32,7 +32,8 @@ The current UI uses a dark, neon-lime visual system across the public site, auth
 ### For users
 
 - Log workouts with set-level detail, notes, effort, and timers
-- Build a custom exercise library from built-in movement templates
+- Browse a curated library of 83 exercises across 12 categories with Pexels-sourced images
+- Add custom exercises on top of the built-in catalog
 - Track body metrics over time
 - Analyze progression with volume, estimated 1RM, and plateau detection
 - Save workout templates, set goals, and manage training preferences
@@ -53,7 +54,7 @@ The current UI uses a dark, neon-lime visual system across the public site, auth
 |---|---|
 | Authentication | Register, login, refresh token, verify email, forgot password, reset password |
 | Workout Tracking | Session logging, rest timer, workout generator hooks, active workout utilities, workout history |
-| Exercise Library | Built-in exercise catalog plus custom exercise creation |
+| Exercise Library | 83 built-in exercises across 12 categories with curated images, plus custom exercise creation |
 | Body Metrics | Weight, body fat, and muscle mass tracking |
 | Progress Analytics | Volume, estimated 1RM, charting, plateau detection |
 | Templates & Goals | Reusable workout templates and training goals |
@@ -254,26 +255,26 @@ gym-app/
 ├── backend/
 │   ├── app/
 │   │   ├── core/          # config, database, security, logging, rate limiter
-│   │   ├── models/        # SQLAlchemy models
-│   │   ├── routes/        # FastAPI route modules
+│   │   ├── models/        # 12 SQLAlchemy models (User, Exercise, Workout, …)
+│   │   ├── routes/        # 14 FastAPI route modules
 │   │   ├── schemas/       # Pydantic request/response models
-│   │   ├── services/      # business logic
-│   │   └── utils/         # shared dependencies and helpers
-│   ├── alembic/           # migrations
-│   └── tests/             # unit + integration coverage
+│   │   ├── services/      # 13 service classes owning all business logic
+│   │   └── utils/         # shared dependencies (auth, tier gates)
+│   ├── alembic/           # database migrations
+│   └── tests/             # unit + integration suites
 ├── frontend/
-│   ├── public/
+│   ├── public/            # manifest, service worker
 │   └── src/
-│       ├── api/
-│       ├── assets/
-│       ├── components/
-│       ├── data/
-│       ├── hooks/
-│       ├── pages/
-│       └── utils/
-├── docs/
-├── infra/terraform/aws/
-├── k8s/base/
+│       ├── api/           # Axios client with JWT refresh
+│       ├── assets/        # category photos
+│       ├── components/    # 18 shared components
+│       ├── data/          # exercise catalog, image catalog, stretch suggestions
+│       ├── hooks/         # useToast, useSubscription
+│       ├── pages/         # 19 page components
+│       └── utils/         # JWT helpers
+├── docs/                  # screenshots for README
+├── infra/terraform/aws/   # EKS infrastructure
+├── k8s/base/              # Kubernetes manifests
 ├── docker-compose.yml
 └── docker-compose.prod.yml
 ```

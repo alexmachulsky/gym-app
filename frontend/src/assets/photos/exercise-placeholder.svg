@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 338" role="img" aria-labelledby="title desc">
+  <title id="title">Exercise image placeholder</title>
+  <desc id="desc">Neutral placeholder graphic for exercises that do not yet have a reviewed exact image.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#171717" />
+      <stop offset="100%" stop-color="#0a0a0a" />
+    </linearGradient>
+    <linearGradient id="lime" x1="0%" x2="100%" y1="0%" y2="0%">
+      <stop offset="0%" stop-color="#a5fa01" />
+      <stop offset="100%" stop-color="#84cc16" />
+    </linearGradient>
+  </defs>
+  <rect width="600" height="338" rx="24" fill="url(#bg)" />
+  <rect x="28" y="28" width="544" height="282" rx="18" fill="#111827" stroke="#2a2a2a" stroke-width="2" />
+  <circle cx="190" cy="120" r="34" fill="#262626" />
+  <path d="M190 162c-38 0-69 31-69 69v10h138v-10c0-38-31-69-69-69Z" fill="#262626" />
+  <rect x="292" y="106" width="176" height="16" rx="8" fill="url(#lime)" />
+  <rect x="292" y="140" width="124" height="14" rx="7" fill="#3f3f46" />
+  <rect x="292" y="190" width="206" height="18" rx="9" fill="#27272a" />
+  <rect x="292" y="218" width="162" height="18" rx="9" fill="#27272a" />
+  <rect x="120" y="266" width="360" height="22" rx="11" fill="url(#lime)" />
+  <text x="300" y="282" fill="#050505" font-family="Arial, sans-serif" font-size="16" font-weight="700" text-anchor="middle">REVIEWED PLACEHOLDER</text>
+</svg>
