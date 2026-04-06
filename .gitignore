@@ -26,3 +26,12 @@ crash.log
 
 # Kubernetes secrets
 k8s/base/app-secrets.yaml
+
+# Temporary screenshots
+*.jpeg
+
+# Tool/output dirs
+.codex
+.playwright-mcp/
+.superpowers/
+output/
