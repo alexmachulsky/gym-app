@@ -5,6 +5,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base, get_db
+from app.core.limiter import limiter
 from app.main import app
 from app.models import *  # noqa: F401,F403
 
@@ -39,6 +40,7 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+    limiter.reset()
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

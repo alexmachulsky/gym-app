@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,8 +10,23 @@ from app.models.user import User
 
 class BodyMetricService:
     @staticmethod
-    def create_metric(db: Session, user: User, weight: float, metric_date) -> BodyMetric:
-        metric = BodyMetric(user_id=user.id, weight=weight, date=metric_date)
+    def create_metric(
+        db: Session,
+        user: User,
+        weight: float,
+        metric_date,
+        body_fat_percentage: Optional[float] = None,
+        muscle_mass: Optional[float] = None,
+        notes: Optional[str] = None,
+    ) -> BodyMetric:
+        metric = BodyMetric(
+            user_id=user.id,
+            weight=weight,
+            date=metric_date,
+            body_fat_percentage=body_fat_percentage,
+            muscle_mass=muscle_mass,
+            notes=notes,
+        )
         db.add(metric)
         db.commit()
         db.refresh(metric)

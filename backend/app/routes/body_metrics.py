@@ -18,7 +18,12 @@ def create_body_metric(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return BodyMetricService.create_metric(db, current_user, payload.weight, payload.date)
+    return BodyMetricService.create_metric(
+        db, current_user, payload.weight, payload.date,
+        body_fat_percentage=payload.body_fat_percentage,
+        muscle_mass=payload.muscle_mass,
+        notes=payload.notes,
+    )
 
 
 @router.get('', response_model=list[BodyMetricResponse])

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -14,6 +15,10 @@ class WorkoutSetCreateRequest(BaseModel):
 class WorkoutCreateRequest(BaseModel):
     date: date
     sets: list[WorkoutSetCreateRequest] = Field(min_length=1)
+    notes: Optional[str] = None
+    effort_rating: Optional[int] = Field(default=None, ge=1, le=10)
+    duration_seconds: Optional[int] = Field(default=None, ge=0)
+    template_id: Optional[uuid.UUID] = None
 
     @field_validator('date')
     @classmethod
@@ -33,10 +38,23 @@ class WorkoutSetResponse(BaseModel):
     sets: int
 
 
+class PersonalRecordItem(BaseModel):
+    exercise_name: str
+    record_type: str
+    old_value: float | None = None
+    new_value: float
+
+
 class WorkoutResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     date: date
     created_at: datetime
+    notes: Optional[str] = None
+    effort_rating: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    estimated_calories: Optional[int] = None
+    template_id: Optional[uuid.UUID] = None
     sets: list[WorkoutSetResponse]
+    new_records: list[PersonalRecordItem] = []

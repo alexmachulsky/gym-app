@@ -15,6 +15,25 @@ class Settings(BaseSettings):
     log_level: str = 'INFO'
     frontend_origin: str = 'http://localhost:5173'
     frontend_origins: str = 'http://localhost:5173,http://127.0.0.1:5173'
+    groq_api_key: str = ''
+    groq_model: str = 'llama-3.3-70b-versatile'
+
+    # Stripe billing
+    stripe_secret_key: str = ''
+    stripe_publishable_key: str = ''
+    stripe_webhook_secret: str = ''
+    stripe_pro_monthly_price_id: str = ''
+    stripe_pro_yearly_price_id: str = ''
+
+    # Email (Resend)
+    resend_api_key: str = ''
+    from_email: str = 'noreply@forgemode.app'
+
+    # App URL for links in emails / Stripe redirects
+    app_url: str = 'http://localhost:5173'
+
+    # Sentry
+    sentry_dsn: str = ''
 
     def get_frontend_origins(self) -> list[str]:
         if self.frontend_origins.strip():
