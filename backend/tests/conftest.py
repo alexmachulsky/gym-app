@@ -1,3 +1,11 @@
+import os
+
+# Settings load on first app import; startup rejects the default insecure key.
+os.environ.setdefault(
+    'SECRET_KEY',
+    'test-secret-key-for-pytest-only-min-32-characters-long',
+)
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

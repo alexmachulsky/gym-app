@@ -182,7 +182,7 @@ class AdminService:
             admin_id=admin_user.id,
             target_user_id=user_id,
             action='update_user',
-            metadata=str({k: v for k, v in updates.items() if v is not None}),
+            event_metadata=str({k: v for k, v in updates.items() if v is not None}),
         )
         db.add(audit)
 
