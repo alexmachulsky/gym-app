@@ -48,6 +48,9 @@ spec:
               value: gym_tracker
             - name: POSTGRES_USER
               value: postgres
+            # SECURITY: POSTGRES_PASSWORD should use secretKeyRef instead of plain text
+            # Example: valueFrom: secretKeyRef: {name: gym-secrets, key: POSTGRES_PASSWORD}
+            # Add POSTGRES_PASSWORD to gym-secrets with a strong random password in production
             - name: POSTGRES_PASSWORD
               value: postgres
           volumeMounts:

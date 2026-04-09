@@ -28,6 +28,8 @@ spec:
     spec:
       containers:
         - name: backend
+          # TODO: CI/CD should pin this to a specific digest, e.g.:
+          # image: ghcr.io/alexmachulsky/gym-app-backend@sha256:<digest>
           image: ghcr.io/alexmachulsky/gym-app-backend:latest
           imagePullPolicy: Always
           ports:

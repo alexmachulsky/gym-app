@@ -16,8 +16,6 @@ from app.services.email_service import EmailService
 
 logger = logging.getLogger('gym_tracker')
 
-TRIAL_DAYS = 14
-
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
@@ -33,7 +31,7 @@ class AuthService:
                 detail='Email already registered',
             )
 
-        trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
+        trial_ends_at = datetime.now(timezone.utc) + timedelta(days=settings.trial_days)
         user = User(
             email=email,
             password_hash=hash_password(password),
@@ -79,10 +77,10 @@ class AuthService:
         return user
 
     @staticmethod
-    def build_token_response(user_id: str) -> TokenResponse:
+    def build_token_response(user_id: str, token_version: int = 1) -> TokenResponse:
         expires = timedelta(minutes=settings.access_token_expire_minutes)
-        access_token = create_access_token(subject=user_id, expires_delta=expires)
-        refresh_token = create_refresh_token(subject=user_id)
+        access_token = create_access_token(subject=user_id, expires_delta=expires, token_version=token_version)
+        refresh_token = create_refresh_token(subject=user_id, token_version=token_version)
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -117,6 +115,7 @@ class AuthService:
         if not verify_password(current_password, user.password_hash):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Current password is incorrect')
         user.password_hash = hash_password(new_password)
+        user.token_version += 1
         db.commit()
 
     # ── forgot / reset password ──────────────────────
@@ -162,6 +161,7 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid or expired reset token')
 
         user.password_hash = hash_password(new_password)
+        user.token_version += 1
         reset.used = True
         db.commit()
 

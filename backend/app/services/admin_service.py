@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -182,7 +183,7 @@ class AdminService:
             admin_id=admin_user.id,
             target_user_id=user_id,
             action='update_user',
-            event_metadata=str({k: v for k, v in updates.items() if v is not None}),
+            event_metadata=json.dumps({k: v for k, v in updates.items() if v is not None}),
         )
         db.add(audit)
 

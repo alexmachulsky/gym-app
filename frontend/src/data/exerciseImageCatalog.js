@@ -45,7 +45,7 @@ const REVIEWED_EXERCISE_IMAGES = {
   'Weighted Dip': reviewedPexels(4162453, 'Muscular man performing weighted dip exercise at modern gym.', ['weighted dip']),
   'Cable Fly': reviewedPexels(32695897, 'Reviewed standing cable fly image.', ['cable fly']),
   'Pec Deck Machine': reviewedPexels(3838937, 'Sportsman training on pec deck machine bringing hands together.', ['pec deck machine']),
-  'Incline Barbell Press': reviewedPexels(3490363, 'Man pressing barbell on incline bench in gym.', ['incline barbell press']),
+  'Incline Barbell Press': reviewedPexels(34651540, 'Man on inclined bench pressing barbell with plates in power rack.', ['incline barbell press']),
 
   'Pull-Up': reviewedPexels(4162478, 'Reviewed pull-up bar image.', ['pull-up']),
   'Chin-Up': reviewedPexels(14591604, 'Woman doing chin-ups with underhand grip.', ['chin-up']),

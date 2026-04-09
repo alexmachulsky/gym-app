@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.subscription import Subscription
 from app.models.user import User
+from app.models.webhook_event import WebhookEvent
 from app.services.email_service import EmailService
 
 logger = logging.getLogger('gym_tracker')
@@ -159,7 +160,7 @@ class BillingService:
 
     @staticmethod
     def handle_webhook_event(db: Session, payload: bytes, sig_header: str) -> None:
-        """Verify and process a Stripe webhook event."""
+        """Verify and process a Stripe webhook event with idempotency protection."""
         BillingService._init_stripe()
         try:
             event = stripe.Webhook.construct_event(
@@ -171,7 +172,17 @@ class BillingService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid payload')
 
         event_type = event['type']
+        event_id = event['id']
         data_obj = event['data']['object']
+
+        # Check if this event has already been processed (idempotency protection)
+        existing_event = db.query(WebhookEvent).filter(
+            WebhookEvent.stripe_event_id == event_id
+        ).first()
+
+        if existing_event:
+            logger.info(f'Webhook event {event_id} already processed at {existing_event.processed_at}, skipping')
+            return
 
         handler = {
             'checkout.session.completed': BillingService._handle_checkout_completed,
@@ -182,6 +193,14 @@ class BillingService:
 
         if handler:
             handler(db, data_obj)
+
+        # Record this event as processed to prevent duplicate handling on Stripe retry
+        webhook_event = WebhookEvent(
+            stripe_event_id=event_id,
+            event_type=event_type,
+        )
+        db.add(webhook_event)
+        db.commit()
 
     @staticmethod
     def _handle_checkout_completed(db: Session, session_obj: dict) -> None:

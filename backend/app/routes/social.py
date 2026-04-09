@@ -1,12 +1,14 @@
 import secrets
 import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
+from app.core.limiter import limiter
 from app.models.follow import Follow
 from app.models.shared_workout import SharedWorkout
 from app.models.user import User
@@ -130,17 +132,21 @@ def share_workout(
     if existing:
         return {'share_token': existing.share_token}
     token = secrets.token_urlsafe(32)
-    shared = SharedWorkout(workout_id=workout_id, user_id=current_user.id, share_token=token)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    shared = SharedWorkout(workout_id=workout_id, user_id=current_user.id, share_token=token, expires_at=expires_at)
     db.add(shared)
     db.commit()
     return {'share_token': token}
 
 
 @router.get('/shared/{share_token}')
-def get_shared_workout(share_token: str, db: Session = Depends(get_db)):
+@limiter.limit('30/minute')
+def get_shared_workout(share_token: str, request: Request, db: Session = Depends(get_db)):
     shared = db.query(SharedWorkout).filter(SharedWorkout.share_token == share_token).first()
     if not shared:
         raise HTTPException(status_code=404, detail='Shared workout not found')
+    if shared.expires_at and shared.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=404, detail='Shared workout link has expired')
     workout = (
         db.query(Workout)
         .options(joinedload(Workout.workout_sets))

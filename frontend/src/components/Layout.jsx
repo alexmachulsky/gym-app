@@ -21,6 +21,7 @@ export default function Layout() {
   const [userEmail, setUserEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [impersonatingUser, setImpersonatingUser] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -43,6 +44,17 @@ export default function Layout() {
       }
     }
 
+    // Check if currently impersonating a user
+    const impersonatingData = localStorage.getItem('impersonating_user');
+    if (impersonatingData) {
+      try {
+        setImpersonatingUser(JSON.parse(impersonatingData));
+      } catch {
+        // Ignore parse errors
+        localStorage.removeItem('impersonating_user');
+      }
+    }
+
     loadCurrentUser();
 
     return () => {
@@ -59,7 +71,25 @@ export default function Layout() {
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('admin_access_token');
+    localStorage.removeItem('admin_refresh_token');
+    localStorage.removeItem('impersonating_user');
     navigate('/login', { replace: true });
+  };
+
+  const exitImpersonation = () => {
+    const adminAccessToken = localStorage.getItem('admin_access_token');
+    const adminRefreshToken = localStorage.getItem('admin_refresh_token');
+    if (adminAccessToken && adminRefreshToken) {
+      localStorage.setItem('access_token', adminAccessToken);
+      localStorage.setItem('refresh_token', adminRefreshToken);
+      localStorage.removeItem('admin_access_token');
+      localStorage.removeItem('admin_refresh_token');
+      localStorage.removeItem('impersonating_user');
+      setImpersonatingUser(null);
+      navigate('/admin', { replace: true });
+      window.location.reload();
+    }
   };
 
   const pageViewByPath = {
@@ -149,6 +179,39 @@ export default function Layout() {
   return (
     <>
     {showOnboarding && <OnboardingWizard onComplete={() => setShowOnboarding(false)} />}
+    {impersonatingUser && (
+      <div style={{
+        backgroundColor: '#ff9800',
+        color: 'white',
+        padding: '1rem',
+        textAlign: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1rem',
+        fontSize: '0.95rem',
+      }}>
+        <span>
+          <strong>Admin Mode:</strong> You are viewing as <strong>{impersonatingUser.username}</strong>. All actions affect their account.
+        </span>
+        <button
+          type="button"
+          onClick={exitImpersonation}
+          style={{
+            backgroundColor: 'white',
+            color: '#ff9800',
+            border: 'none',
+            padding: '0.5rem 1rem',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Exit Impersonation
+        </button>
+      </div>
+    )}
     <div className="app-stage">
       <aside className="side-visual side-visual-left" key={`${location.pathname}-left`} aria-hidden="true">
         <img src={pageView.sideLeftImage} alt="" loading="eager" />

@@ -19,7 +19,7 @@ from app.schemas.auth import (
     VerifyEmailRequest,
 )
 from app.services.auth_service import AuthService
-from app.utils.deps import get_current_user
+from app.utils.deps import get_current_user, require_not_impersonating
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -52,11 +52,22 @@ def refresh_token(request: Request, payload: RefreshRequest, db: Session = Depen
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
 
-    return AuthService.build_token_response(user_id)
+    # Verify user still exists in database
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User no longer exists')
+
+    # Verify token_version hasn't been revoked
+    token_version = data.get('tv', 1)
+    if token_version != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token has been revoked')
+
+    return AuthService.build_token_response(user_id, user.token_version)
 
 
 @router.get('/me', response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
+@limiter.limit('30/minute')
+def get_me(request: Request, current_user: User = Depends(get_current_user)):
     return current_user
 
 
@@ -79,7 +90,7 @@ def update_profile(
 def change_password(
     payload: ChangePasswordRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_not_impersonating),
 ):
     AuthService.change_password(db, current_user, payload.current_password, payload.new_password)
 
@@ -119,13 +130,20 @@ def resend_verification(
 @router.delete('/account', status_code=status.HTTP_204_NO_CONTENT)
 def delete_account(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_not_impersonating),
 ):
     AuthService.delete_account(db, current_user)
 
 
 @router.post('/logout', status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response):
+def logout(
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Revoke all tokens by incrementing token_version
+    current_user.token_version += 1
+    db.commit()
     response.delete_cookie('access_token')
     response.delete_cookie('refresh_token', path='/auth/refresh')
 

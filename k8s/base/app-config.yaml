@@ -7,6 +7,5 @@ data:
   ACCESS_TOKEN_EXPIRE_MINUTES: "60"
   LOG_LEVEL: "INFO"
   FRONTEND_ORIGINS: "https://gym.example.com"
-  DATABASE_URL: "postgresql+psycopg://postgres:postgres@gym-postgres:5432/gym_tracker"
   APP_URL: "https://gym.example.com"
   FROM_EMAIL: "noreply@gym.example.com"

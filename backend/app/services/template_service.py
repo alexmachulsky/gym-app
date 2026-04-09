@@ -30,7 +30,7 @@ class TemplateService:
             if not exercise:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f'Exercise {ts.exercise_id} not found',
+                    detail='One or more exercises not found',
                 )
             db.add(WorkoutTemplateSet(
                 template_id=template.id,

@@ -7,8 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-gym_tracker}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - '5432:5432'
+    # Port 5432 NOT exposed to host — access via 'docker exec' or port-forward tunnel instead
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:

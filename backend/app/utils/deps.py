@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -19,6 +20,22 @@ FREE_LIMITS = {
     'templates': 3,
     'goals': 2,
 }
+
+
+def get_token_payload(token: str = Depends(oauth2_scheme)) -> dict[str, Any]:
+    """Extract and return the raw JWT payload."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail='Could not validate credentials',
+        headers={'WWW-Authenticate': 'Bearer'},
+    )
+    try:
+        payload = decode_access_token(token)
+        if payload.get('type') != 'access':
+            raise credentials_exception
+        return payload
+    except (JWTError, ValueError):
+        raise credentials_exception
 
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
@@ -46,6 +63,16 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     )
     if user is None:
         raise credentials_exception
+
+    # Check token_version matches (validates token hasn't been revoked)
+    token_version = payload.get('tv', 1)
+    if token_version != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Token has been revoked',
+            headers={'WWW-Authenticate': 'Bearer'},
+        )
+
     return user
 
 
@@ -126,5 +153,18 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail='Admin access required',
+        )
+    return current_user
+
+
+def require_not_impersonating(
+    current_user: User = Depends(get_current_user),
+    token_data: dict[str, Any] = Depends(get_token_payload),
+) -> User:
+    """Prevent sensitive actions while impersonating a user."""
+    if token_data.get('is_impersonating'):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='This action cannot be performed while impersonating a user',
         )
     return current_user

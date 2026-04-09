@@ -14,7 +14,6 @@ export default function AdminDashboardPage() {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('');
   const [page, setPage] = useState(0);
-  const [impersonating, setImpersonating] = useState(null);
   const PAGE_SIZE = 20;
 
   useEffect(() => {
@@ -81,10 +80,14 @@ export default function AdminDashboardPage() {
   const handleImpersonate = async (userId) => {
     try {
       const res = await api.post(`/admin/users/${userId}/impersonate`);
-      setImpersonating(res.data.impersonating);
       // Store the current admin tokens so we can restore later
       localStorage.setItem('admin_access_token', localStorage.getItem('access_token'));
       localStorage.setItem('admin_refresh_token', localStorage.getItem('refresh_token'));
+      // Store impersonation context
+      localStorage.setItem('impersonating_user', JSON.stringify({
+        userId,
+        username: res.data.impersonating,
+      }));
       localStorage.setItem('access_token', res.data.access_token);
       localStorage.setItem('refresh_token', res.data.refresh_token);
       addToast(`Impersonating ${res.data.impersonating}`, 'info');

@@ -17,29 +17,30 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
+def create_access_token(subject: str, expires_delta: timedelta | None = None, token_version: int = 1) -> str:
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
-    payload: dict[str, Any] = {'sub': subject, 'exp': expire, 'type': 'access'}
+    payload: dict[str, Any] = {'sub': subject, 'exp': expire, 'type': 'access', 'tv': token_version}
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
-def create_refresh_token(subject: str) -> str:
+def create_refresh_token(subject: str, token_version: int = 1) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
-    payload: dict[str, Any] = {'sub': subject, 'exp': expire, 'type': 'refresh'}
+    payload: dict[str, Any] = {'sub': subject, 'exp': expire, 'type': 'refresh', 'tv': token_version}
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
-def create_impersonation_token(subject: str, impersonator_id: str) -> str:
+def create_impersonation_token(subject: str, impersonator_id: str, token_version: int = 1) -> str:
     """Create a short-lived access token for admin impersonation, with audit markers."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=60)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     payload: dict[str, Any] = {
         'sub': subject,
         'exp': expire,
         'type': 'access',
         'is_impersonating': True,
         'impersonator_id': impersonator_id,
+        'tv': token_version,
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
