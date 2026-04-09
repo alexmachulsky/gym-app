@@ -24,22 +24,43 @@ on:
         required: true
         default: ghcr.io/alexmachulsky/gym-app-frontend:latest
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
+    timeout-minutes: 30
+    env:
+      AWS_REGION: ${{ inputs.aws_region }}
+      CLUSTER_NAME: ${{ inputs.cluster_name }}
+      K8S_NAMESPACE: ${{ inputs.namespace }}
+      BACKEND_IMAGE: ${{ inputs.backend_image }}
+      FRONTEND_IMAGE: ${{ inputs.frontend_image }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          # Reject shell metacharacters / command substitution in operator-supplied values
+          safe_name='^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,252}$'
+          safe_region='^[a-z0-9-]{6,32}$'
+          safe_image='^[a-zA-Z0-9][a-zA-Z0-9_.@/:-]{0,511}$'
+          [[ "$AWS_REGION" =~ $safe_region ]] || { echo 'Invalid aws_region'; exit 1; }
+          [[ "$CLUSTER_NAME" =~ $safe_name ]] || { echo 'Invalid cluster_name'; exit 1; }
+          [[ "$K8S_NAMESPACE" =~ $safe_name ]] || { echo 'Invalid namespace'; exit 1; }
+          [[ "$BACKEND_IMAGE" =~ $safe_image ]] || { echo 'Invalid backend_image'; exit 1; }
+          [[ "$FRONTEND_IMAGE" =~ $safe_image ]] || { echo 'Invalid frontend_image'; exit 1; }
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ inputs.aws_region }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -47,25 +68,24 @@ jobs:
           version: v1.30.0
 
       - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig \
-            --region "${{ inputs.aws_region }}" \
-            --name "${{ inputs.cluster_name }}"
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$CLUSTER_NAME"
 
       - name: Apply base manifests
         run: kubectl apply -k k8s/base
 
       - name: Set deploy image tags
         run: |
-          kubectl -n "${{ inputs.namespace }}" set image deployment/backend \
-            backend="${{ inputs.backend_image }}"
-          kubectl -n "${{ inputs.namespace }}" set image deployment/frontend \
-            frontend="${{ inputs.frontend_image }}"
+          set -euo pipefail
+          kubectl -n "$K8S_NAMESPACE" set image deployment/backend \
+            backend="$BACKEND_IMAGE"
+          kubectl -n "$K8S_NAMESPACE" set image deployment/frontend \
+            frontend="$FRONTEND_IMAGE"
 
       - name: Wait for rollouts
         run: |
-          kubectl -n "${{ inputs.namespace }}" rollout status deployment/backend --timeout=180s
-          kubectl -n "${{ inputs.namespace }}" rollout status deployment/frontend --timeout=180s
+          set -euo pipefail
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/backend --timeout=180s
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/frontend --timeout=180s
 
       - name: Show services and ingress
-        run: kubectl -n "${{ inputs.namespace }}" get svc,ingress
+        run: kubectl -n "$K8S_NAMESPACE" get svc,ingress

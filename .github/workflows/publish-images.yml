@@ -7,13 +7,21 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+  packages: write
+  actions: write
+
+concurrency:
+  group: publish-images-${{ github.ref }}
+  # Let each publish finish; avoid partial pushes to GHCR when main moves quickly.
+  cancel-in-progress: false
+
 jobs:
   publish:
     name: Publish ${{ matrix.service }} image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -28,6 +36,7 @@ jobs:
       - name: Set lowercase image path
         id: prep
         run: |
+          set -euo pipefail
           OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
           REPO_LC=$(echo "${GITHUB_REPOSITORY##*/}" | tr '[:upper:]' '[:lower:]')
           echo "image=ghcr.io/${OWNER_LC}/${REPO_LC}-${{ matrix.service }}" >> "$GITHUB_OUTPUT"

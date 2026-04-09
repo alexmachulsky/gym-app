@@ -1,3 +1,14 @@
+# Continuous integration — validate code, images, and local stack.
+#
+# Structure:
+#   1. validate (parallel) — Kubernetes manifests
+#   2. backend-tests, frontend-build (parallel) — fast feedback
+#   3. docker-build — after k8s + app checks (fail fast: bad manifests skip image builds)
+#   4. compose-smoke — same gate, parallel with docker-build
+#   5. ci-success — single required check for branch protection
+#
+# Security: minimal GITHUB_TOKEN scopes; no repo secrets in this workflow; explicit env for compose.
+
 name: CI
 
 on:
@@ -6,11 +17,34 @@ on:
       - main
       - master
   pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  # Docker Buildx GHA cache (cache-from/cache-to type=gha)
+  actions: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # PR pushes: cancel superseded runs. main: allow concurrent runs to finish (release tagging, etc.).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  KUBECTL_VERSION: 'v1.30.0'
+  # Non-default test secret (startup guard rejects change-me-in-production)
+  CI_SECRET_KEY: ci-workflow-secret-key-minimum-32-characters-long
 
 jobs:
   k8s-validate:
-    name: Kubernetes Manifests Validate
+    name: Validate Kubernetes manifests
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -19,14 +53,17 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'v1.30.0'
+          version: ${{ env.KUBECTL_VERSION }}
 
-      - name: Validate kustomize render
+      - name: Kustomize render
         run: kubectl kustomize k8s/base >/dev/null
 
   backend-tests:
-    name: Backend Tests
+    name: Backend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SECRET_KEY: ${{ env.CI_SECRET_KEY }}
 
     steps:
       - name: Checkout
@@ -35,45 +72,51 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
           cache-dependency-path: backend/requirements.txt
 
-      - name: Install backend dependencies
+      - name: Install dependencies
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Run backend tests
+      - name: Run tests
         working-directory: backend
         run: pytest -q
 
   frontend-build:
-    name: Frontend Build
+    name: Frontend build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install frontend dependencies
+      - name: Install and build
         working-directory: frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm run build
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
 
   docker-build:
-    name: Docker Build
+    name: Docker images (build only)
     runs-on: ubuntu-latest
+    needs:
+      - k8s-validate
+      - backend-tests
+      - frontend-build
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -103,34 +146,51 @@ jobs:
           cache-to: type=gha,mode=max
 
   compose-smoke:
-    name: Compose Smoke Test
+    name: Docker Compose smoke test
     runs-on: ubuntu-latest
+    needs:
+      - k8s-validate
+      - backend-tests
+      - frontend-build
+    timeout-minutes: 20
+    env:
+      SECRET_KEY: ${{ env.CI_SECRET_KEY }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start stack
-        run: docker compose up -d --build
-
-      - name: Wait for backend health endpoint
+      - name: Start stack and wait for healthy services
         run: |
-          for i in {1..30}; do
-            if curl -fsS http://localhost:8000/health >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Backend health endpoint did not become ready in time"
-          exit 1
+          set -euo pipefail
+          docker compose up -d --build --wait --wait-timeout 120
 
-      - name: Check frontend responds
-        run: curl -fsS http://localhost:5173 >/dev/null
+      - name: Verify HTTP endpoints
+        run: |
+          set -euo pipefail
+          curl -fsS http://localhost:8000/health >/dev/null
+          curl -fsS http://localhost:5173 >/dev/null
 
-      - name: Show logs on failure
+      - name: Compose logs on failure
         if: failure()
-        run: docker compose logs
+        run: docker compose logs --no-color
 
-      - name: Tear down stack
+      - name: Tear down
         if: always()
-        run: docker compose down -v
+        run: docker compose down -v --remove-orphans
+
+  ci-success:
+    name: CI passed
+    runs-on: ubuntu-latest
+    needs:
+      - k8s-validate
+      - backend-tests
+      - frontend-build
+      - docker-build
+      - compose-smoke
+    timeout-minutes: 2
+    if: success()
+
+    steps:
+      - name: Done
+        run: echo "All CI jobs completed successfully."
