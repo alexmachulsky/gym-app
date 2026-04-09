@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy import func
@@ -38,14 +38,25 @@ def get_token_payload(token: str = Depends(oauth2_scheme)) -> dict[str, Any]:
         raise credentials_exception
 
 
-def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
+def get_current_user(request: Request, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail='Could not validate credentials',
         headers={'WWW-Authenticate': 'Bearer'},
     )
+
+    # Try Authorization header first, then cookie
+    token_to_use = None
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token_to_use = auth_header[7:]
+    if not token_to_use:
+        token_to_use = request.cookies.get('access_token')
+    if not token_to_use:
+        token_to_use = token
+
     try:
-        payload = decode_access_token(token)
+        payload = decode_access_token(token_to_use)
         if payload.get('type') != 'access':
             raise credentials_exception
         subject = payload.get('sub')

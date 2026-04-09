@@ -84,7 +84,8 @@ class StatusResponse(BaseModel):
 # ── Endpoints ──────────────────────────────────────────────
 
 @router.get('/status', response_model=StatusResponse)
-def ai_status(current_user: User = Depends(require_pro)):
+@limiter.limit('10/minute')
+def ai_status(request: Request, current_user: User = Depends(require_pro)):
     """Check whether the AI backend is configured and available."""
     if AIService.is_available():
         from app.core.config import settings
@@ -93,7 +94,9 @@ def ai_status(current_user: User = Depends(require_pro)):
 
 
 @router.post('/chat', response_model=ChatResponse)
+@limiter.limit('10/minute')
 async def ai_chat(
+    request: Request,
     body: ChatRequest,
     current_user: User = Depends(require_pro),
 ):
@@ -107,7 +110,9 @@ async def ai_chat(
 
 
 @router.post('/parse-workout', response_model=ParseResponse)
+@limiter.limit('10/minute')
 async def ai_parse_workout(
+    request: Request,
     body: ParseRequest,
     current_user: User = Depends(require_pro),
 ):
@@ -121,7 +126,9 @@ async def ai_parse_workout(
 
 
 @router.post('/workout-summary', response_model=ChatResponse)
+@limiter.limit('10/minute')
 async def ai_workout_summary(
+    request: Request,
     body: SummaryRequest,
     current_user: User = Depends(require_pro),
 ):
@@ -135,7 +142,9 @@ async def ai_workout_summary(
 
 
 @router.post('/exercise-tips', response_model=ChatResponse)
+@limiter.limit('10/minute')
 async def ai_exercise_tips(
+    request: Request,
     body: TipsRequest,
     current_user: User = Depends(require_pro),
 ):

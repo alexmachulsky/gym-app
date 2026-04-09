@@ -33,6 +33,8 @@ export default function LoginPage() {
 
     try {
       const response = await api.post('/auth/login', form);
+      // TODO: Remove localStorage storage once backend cookie migration is complete
+      // Currently stored for backward compatibility and admin impersonation flow
       localStorage.setItem('access_token', response.data.access_token);
       if (response.data.refresh_token) {
         localStorage.setItem('refresh_token', response.data.refresh_token);

@@ -171,6 +171,20 @@ class AdminService:
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User not found')
 
+        # Prevent admin from modifying their own is_admin flag
+        if str(user_id) == str(admin_user.id) and 'is_admin' in updates:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail='Cannot modify your own admin status'
+            )
+
+        # Prevent any admin from removing admin status from another admin
+        if 'is_admin' in updates and user.is_admin and not updates.get('is_admin'):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail='Cannot remove admin status from another admin'
+            )
+
         if 'subscription_tier' in updates and updates['subscription_tier'] is not None:
             user.subscription_tier = updates['subscription_tier']
         if 'is_admin' in updates and updates['is_admin'] is not None:

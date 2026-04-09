@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from jose import JWTError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import decode_access_token, safe_decode_access_token
@@ -36,14 +38,38 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     user = AuthService.authenticate_user(db, payload.email, payload.password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
-    return AuthService.build_token_response(str(user.id))
+    tokens = AuthService.build_token_response(str(user.id))
+    response = JSONResponse(content=tokens.model_dump(), status_code=status.HTTP_200_OK)
+    response.set_cookie(
+        key='access_token',
+        value=tokens.access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=60 * 60,
+        path='/',
+    )
+    response.set_cookie(
+        key='refresh_token',
+        value=tokens.refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=60 * 60 * 24 * 30,
+        path='/auth/refresh',
+    )
+    return response
 
 
 @router.post('/refresh', response_model=TokenResponse)
 @limiter.limit('10/minute')
 def refresh_token(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
+    # Try cookie first, then body
+    refresh_tok = request.cookies.get('refresh_token') or (payload.refresh_token if payload else None)
+    if not refresh_tok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
     try:
-        data = decode_access_token(payload.refresh_token)
+        data = decode_access_token(refresh_tok)
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
     if data.get('type') != 'refresh':
@@ -62,7 +88,27 @@ def refresh_token(request: Request, payload: RefreshRequest, db: Session = Depen
     if token_version != user.token_version:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token has been revoked')
 
-    return AuthService.build_token_response(user_id, user.token_version)
+    tokens = AuthService.build_token_response(user_id, user.token_version)
+    response = JSONResponse(content=tokens.model_dump(), status_code=status.HTTP_200_OK)
+    response.set_cookie(
+        key='access_token',
+        value=tokens.access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=60 * 60,
+        path='/',
+    )
+    response.set_cookie(
+        key='refresh_token',
+        value=tokens.refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        max_age=60 * 60 * 24 * 30,
+        path='/auth/refresh',
+    )
+    return response
 
 
 @router.get('/me', response_model=UserResponse)
@@ -96,7 +142,7 @@ def change_password(
 
 
 @router.post('/forgot-password', status_code=status.HTTP_200_OK)
-@limiter.limit('5/minute')
+@limiter.limit('3/minute')
 def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     AuthService.create_password_reset(db, payload.email)
     return {'detail': 'If that email exists, a reset link has been sent.'}
@@ -144,6 +190,6 @@ def logout(
     # Revoke all tokens by incrementing token_version
     current_user.token_version += 1
     db.commit()
-    response.delete_cookie('access_token')
+    response.delete_cookie('access_token', path='/')
     response.delete_cookie('refresh_token', path='/auth/refresh')
 

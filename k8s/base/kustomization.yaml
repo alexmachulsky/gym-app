@@ -11,4 +11,7 @@ resources:
   - backend.yaml
   - backend-hpa.yaml
   - frontend.yaml
+  - cluster-issuer.yaml
+  - cluster-issuer-staging.yaml
   - ingress.yaml
+  - network-policies.yaml

@@ -5,6 +5,18 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../hooks/useToast';
 import { useSubscription } from '../hooks/useSubscription';
 
+function safeStripeRedirect(url, addToast) {
+  try {
+    const parsed = new URL(url);
+    if (!['checkout.stripe.com', 'billing.stripe.com'].includes(parsed.hostname)) {
+      throw new Error('Invalid redirect domain');
+    }
+    window.location.href = url;
+  } catch {
+    addToast('Invalid payment redirect URL', 'error');
+  }
+}
+
 function getTheme() {
   return localStorage.getItem('theme') || 'dark';
 }
@@ -15,7 +27,7 @@ function applyTheme(theme) {
 
 export default function SettingsPage() {
   const { addToast } = useToast();
-  const { subscription, isPro, refresh: refreshSub } = useSubscription();
+  const { subscription, isPro } = useSubscription();
   const [settings, setSettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,7 +85,7 @@ export default function SettingsPage() {
     setBillingLoading(true);
     try {
       const res = await api.post('/billing/checkout', { interval: billingInterval });
-      window.location.href = res.data.checkout_url;
+      safeStripeRedirect(res.data.checkout_url, addToast);
     } catch (err) {
       addToast(err.response?.data?.detail || 'Failed to start checkout', 'error');
       setBillingLoading(false);
@@ -84,7 +96,7 @@ export default function SettingsPage() {
     setBillingLoading(true);
     try {
       const res = await api.post('/billing/portal');
-      window.location.href = res.data.portal_url;
+      safeStripeRedirect(res.data.portal_url, addToast);
     } catch (err) {
       addToast(err.response?.data?.detail || 'Failed to open billing portal', 'error');
       setBillingLoading(false);

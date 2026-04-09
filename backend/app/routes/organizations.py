@@ -157,7 +157,8 @@ def invite_member(
 
     target_user = db.query(User).filter(User.email == payload.email).first()
     if not target_user:
-        raise HTTPException(status_code=404, detail='User not found with that email')
+        # Don't reveal whether the email exists (prevent email enumeration)
+        return {'detail': 'If that user exists, an invitation will be sent'}
 
     existing = (
         db.query(OrganizationMember)
@@ -165,14 +166,15 @@ def invite_member(
         .first()
     )
     if existing:
-        raise HTTPException(status_code=409, detail='User is already a member')
+        # User exists but is already a member - still return generic response to avoid enumeration
+        return {'detail': 'If that user exists, an invitation will be sent'}
 
     new_member = OrganizationMember(
         organization_id=org_id, user_id=target_user.id, role=payload.role
     )
     db.add(new_member)
     db.commit()
-    return {'detail': f'{target_user.email} added as {payload.role}'}
+    return {'detail': 'If that user exists, an invitation will be sent'}
 
 
 @router.delete('/{org_id}/members/{user_id}')

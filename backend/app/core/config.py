@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     # Sentry
     sentry_dsn: str = ''
 
+    # Metrics API key (empty = metrics endpoint disabled/blocked)
+    metrics_api_key: str = ''
+
+    # Cookie security settings
+    cookie_secure: bool = True
+    cookie_samesite: str = 'lax'
+
     def get_frontend_origins(self) -> list[str]:
         if self.frontend_origins.strip():
             return [origin.strip() for origin in self.frontend_origins.split(',') if origin.strip()]

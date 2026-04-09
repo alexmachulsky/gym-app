@@ -17,7 +17,7 @@ router = APIRouter(prefix='/export', tags=['export'])
 
 
 @router.get('/workouts')
-@limiter.limit('5/minute')
+@limiter.limit('3/minute')
 def export_workouts(
     request: Request,
     format: str = Query(default='csv', pattern='^csv$'),
@@ -60,7 +60,7 @@ def export_workouts(
 
 
 @router.get('/body-metrics')
-@limiter.limit('5/minute')
+@limiter.limit('3/minute')
 def export_body_metrics(
     request: Request,
     format: str = Query(default='csv', pattern='^csv$'),

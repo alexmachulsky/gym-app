@@ -57,6 +57,13 @@ class ProfileUpdateRequest(BaseModel):
     avatar_url: str | None = Field(None, max_length=500)
     onboarding_completed: bool | None = None
 
+    @field_validator('avatar_url')
+    @classmethod
+    def validate_avatar_url(cls, v):
+        if v is not None and not v.startswith(('https://', 'http://')):
+            raise ValueError('avatar_url must be a valid http or https URL')
+        return v
+
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=8, max_length=128)

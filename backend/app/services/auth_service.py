@@ -117,6 +117,8 @@ class AuthService:
         user.password_hash = hash_password(new_password)
         user.token_version += 1
         db.commit()
+        # Send security notification email
+        EmailService.send_password_changed_notification(user.email, user.name)
 
     # ── forgot / reset password ──────────────────────
 
@@ -126,6 +128,18 @@ class AuthService:
         user = db.query(User).filter(User.email == email).first()
         if not user:
             return
+
+        # Check per-email rate limit: max 3 reset requests per hour
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent_resets = db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.created_at >= one_hour_ago,
+        ).count()
+        if recent_resets >= 3:
+            raise HTTPException(
+                status_code=429,
+                detail='Too many password reset requests. Please wait before trying again.',
+            )
 
         # Invalidate previous tokens
         db.query(PasswordResetToken).filter(
@@ -164,6 +178,8 @@ class AuthService:
         user.token_version += 1
         reset.used = True
         db.commit()
+        # Send security notification email
+        EmailService.send_password_reset_notification(user.email, user.name)
 
     # ── email verification ───────────────────────────
 

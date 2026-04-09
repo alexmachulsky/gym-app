@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from app.core.config import settings
 
@@ -68,6 +69,48 @@ class EmailService:
         </div>
         """
         EmailService._send(email, 'Reset your password', html)
+
+    @staticmethod
+    def send_password_changed_notification(email: str, name: str | None) -> None:
+        greeting = f'Hi {name},' if name else 'Hi there,'
+        utc_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        html = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2 style="color:#a3e635">Security Alert: Your password was changed</h2>
+            <p>{greeting}</p>
+            <p><strong>Your account password was changed on {utc_time}.</strong></p>
+            <p style="color:#666">If you made this change, no action is needed.</p>
+            <p style="color:#666">If you did NOT make this change, your account may be compromised. Please reset your password immediately:</p>
+            <a href="{settings.app_url}/forgot-password"
+               style="display:inline-block;padding:12px 28px;background:#ef4444;color:#fff;
+                      border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                Reset Password Immediately
+            </a>
+            <p style="color:#888;font-size:13px">If you have questions, contact support at your account settings.</p>
+        </div>
+        """
+        EmailService._send(email, 'Security Alert: Your password was changed', html)
+
+    @staticmethod
+    def send_password_reset_notification(email: str, name: str | None) -> None:
+        greeting = f'Hi {name},' if name else 'Hi there,'
+        utc_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        html = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2 style="color:#a3e635">Security Alert: Your password was reset</h2>
+            <p>{greeting}</p>
+            <p><strong>Your account password was reset on {utc_time} via the forgot-password flow.</strong></p>
+            <p style="color:#666">If you made this change, no action is needed.</p>
+            <p style="color:#666">If you did NOT make this change, your account may be compromised. Please reset your password immediately:</p>
+            <a href="{settings.app_url}/forgot-password"
+               style="display:inline-block;padding:12px 28px;background:#ef4444;color:#fff;
+                      border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                Reset Password Immediately
+            </a>
+            <p style="color:#888;font-size:13px">If you have questions, contact support at your account settings.</p>
+        </div>
+        """
+        EmailService._send(email, 'Security Alert: Your password was reset', html)
 
     @staticmethod
     def send_welcome_email(email: str, name: str | None) -> None:

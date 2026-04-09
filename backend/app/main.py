@@ -1,15 +1,18 @@
 import logging
+import secrets
 import time
 import uuid
 
 import sentry_sdk
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from fastapi.security import APIKeyHeader
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -49,6 +52,47 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+CSRF_EXEMPT_PATHS = {
+    '/auth/login',
+    '/auth/register',
+    '/auth/refresh',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/billing/webhook',
+}
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """Double-submit cookie CSRF protection middleware."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Check CSRF token for state-changing requests
+        if request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            path = request.url.path
+            # Skip CSRF check for exempt paths
+            if not any(path.startswith(exempt) for exempt in CSRF_EXEMPT_PATHS):
+                csrf_cookie = request.cookies.get('csrf_token')
+                csrf_header = request.headers.get('X-CSRF-Token')
+                if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+                    return Response('CSRF token mismatch', status_code=403)
+
+        response = await call_next(request)
+
+        # Set CSRF cookie if not present
+        if 'csrf_token' not in request.cookies:
+            token = secrets.token_urlsafe(32)
+            response.set_cookie(
+                'csrf_token',
+                token,
+                httponly=False,  # Must be readable by JavaScript
+                samesite='lax',
+                secure=settings.cookie_secure,
+                path='/',
+            )
+
+        return response
+
+
 @app.middleware('http')
 async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
@@ -58,15 +102,34 @@ async def security_headers_middleware(request: Request, call_next):
     return response
 
 
+app.add_middleware(CSRFMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_frontend_origins(),
     allow_credentials=True,
     allow_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allow_headers=['Authorization', 'Content-Type'],
+    allow_headers=['Authorization', 'Content-Type', 'X-CSRF-Token'],
 )
 
-Instrumentator().instrument(app).expose(app, endpoint='/metrics', include_in_schema=False)
+def verify_metrics_key(auth_header: str | None = Security(APIKeyHeader(name='X-Metrics-Key', auto_error=False))):
+    """Verify metrics API key. Only accessible if key is configured and matches."""
+    if not settings.metrics_api_key:
+        # Metrics disabled (empty key)
+        raise HTTPException(status_code=403, detail='Metrics endpoint is disabled')
+    if auth_header != settings.metrics_api_key:
+        raise HTTPException(status_code=403, detail='Invalid metrics API key')
+    return True
+
+
+instrumentator = Instrumentator()
+instrumentator.instrument(app)
+
+# Expose metrics with API key protection
+@app.get('/metrics', include_in_schema=False, dependencies=[Security(verify_metrics_key)])
+async def get_metrics():
+    """Prometheus metrics endpoint. Requires X-Metrics-Key header."""
+    return instrumentator.get_metrics(app)
+
 
 
 @app.middleware('http')

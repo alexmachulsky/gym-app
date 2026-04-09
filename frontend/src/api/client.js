@@ -9,6 +9,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 let isRefreshing = false;
@@ -23,6 +24,16 @@ function processQueue(error, token = null) {
     }
   });
   refreshQueue = [];
+}
+
+/**
+ * Read a cookie by name.
+ * @param {string} name - The cookie name
+ * @returns {string|null} The cookie value or null if not found
+ */
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
 }
 
 async function attemptRefresh() {
@@ -41,9 +52,11 @@ async function attemptRefresh() {
   return access_token;
 }
 
-function redirectToLogin() {
+export function redirectToLogin() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
+  // Also attempt server-side cookie clear (fire and forget)
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
   if (!window.location.pathname.includes('/login')) {
     window.location.href = '/login';
   }
@@ -57,6 +70,15 @@ api.interceptors.request.use((config) => {
     }
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Add CSRF token for state-changing requests
+  if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase())) {
+    const csrfToken = getCookie('csrf_token');
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
   return config;
 });
 
