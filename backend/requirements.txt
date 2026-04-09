@@ -13,5 +13,5 @@ sentry-sdk[fastapi]>=2.0.0
 prometheus-fastapi-instrumentator>=7.0.0
 resend>=2.0.0
 stripe>=8.0.0
-pytest==8.3.4
+pytest==9.0.3
 httpx==0.28.1
