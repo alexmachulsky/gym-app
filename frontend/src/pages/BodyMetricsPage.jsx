@@ -72,6 +72,7 @@ export default function BodyMetricsPage() {
         notes: form.notes || null,
       });
       setForm({ weight: '', date: '', body_fat: '', muscle_mass: '', notes: '' });
+      setTouched({});
       await loadMetrics();
       addToast('Body metric saved', 'success');
     } catch (err) {

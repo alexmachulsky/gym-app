@@ -1,0 +1,11 @@
+{
+  "codeConnect": {
+    "include": [
+      "frontend/src/components/**/*.figma.jsx"
+    ],
+    "parser": "react",
+    "importPaths": {
+      "frontend/src/components/*": "@components/*"
+    }
+  }
+}
