@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +13,10 @@ from app.models.password_reset import PasswordResetToken
 from app.models.user import User
 from app.schemas.auth import TokenResponse
 from app.services.email_service import EmailService
+
+logger = logging.getLogger('gym_tracker')
+
+TRIAL_DAYS = 14
 
 
 def _hash_token(token: str) -> str:
@@ -28,13 +33,20 @@ class AuthService:
                 detail='Email already registered',
             )
 
-        user = User(email=email, password_hash=hash_password(password), name=name)
+        trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
+        user = User(
+            email=email,
+            password_hash=hash_password(password),
+            name=name,
+            trial_ends_at=trial_ends_at,
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
 
         # Send verification email (fire-and-forget)
         AuthService._create_and_send_verification(db, user)
+        EmailService.send_trial_started_email(email, name)
 
         return user
 
@@ -43,8 +55,27 @@ class AuthService:
         user = db.query(User).filter(User.email == email).first()
         if not user:
             return None
+
+        # Check if account is locked
+        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail='Account temporarily locked due to too many failed login attempts. Try again later.',
+            )
+
         if not verify_password(password, user.password_hash):
+            # Increment failed attempts
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= 5:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+                logger.warning('Account locked due to failed login attempts: %s', email)
+            db.commit()
             return None
+
+        # Successful login — reset lockout state
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        db.commit()
         return user
 
     @staticmethod
@@ -62,11 +93,19 @@ class AuthService:
     # ── profile ──────────────────────────────────────
 
     @staticmethod
-    def update_profile(db: Session, user: User, name: str | None, avatar_url: str | None) -> User:
+    def update_profile(
+        db: Session,
+        user: User,
+        name: str | None,
+        avatar_url: str | None,
+        onboarding_completed: bool | None = None,
+    ) -> User:
         if name is not None:
             user.name = name
         if avatar_url is not None:
             user.avatar_url = avatar_url
+        if onboarding_completed is not None:
+            user.onboarding_completed = onboarding_completed
         db.commit()
         db.refresh(user)
         return user

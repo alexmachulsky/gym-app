@@ -32,7 +32,7 @@ def list_workouts(
     to_date: date | None = Query(default=None),
     exercise_id: uuid.UUID | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -99,3 +99,15 @@ def delete_workout(
 ):
     WorkoutService.delete_workout(db, current_user, workout_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get('/last-sets/{exercise_id}')
+def get_last_sets(
+    exercise_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = WorkoutService.get_last_sets(db, current_user, exercise_id)
+    if result is None:
+        return {'last_sets': None}
+    return {'last_sets': result}

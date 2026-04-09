@@ -355,3 +355,46 @@ class ProgressionService:
             ))
 
         return sorted(result, key=lambda x: x.days_since or 999)
+
+    @staticmethod
+    def get_workout_streak(user_id: uuid.UUID, db: Session) -> dict:
+        """Calculate the current consecutive-day workout streak."""
+        dates = (
+            db.query(Workout.date)
+            .filter(Workout.user_id == user_id)
+            .distinct()
+            .order_by(Workout.date.desc())
+            .all()
+        )
+        if not dates:
+            return {'current_streak': 0, 'longest_streak': 0}
+
+        unique_dates = sorted({d[0] for d in dates}, reverse=True)
+        today = date.today()
+
+        # Current streak: consecutive days ending today or yesterday
+        current = 0
+        expected = today
+        for d in unique_dates:
+            if d == expected:
+                current += 1
+                expected = d - timedelta(days=1)
+            elif d == today - timedelta(days=1) and current == 0:
+                expected = d
+                current = 1
+                expected = d - timedelta(days=1)
+            else:
+                break
+
+        # Longest streak
+        longest = 1
+        run = 1
+        sorted_asc = sorted(unique_dates)
+        for i in range(1, len(sorted_asc)):
+            if (sorted_asc[i] - sorted_asc[i - 1]).days == 1:
+                run += 1
+                longest = max(longest, run)
+            else:
+                run = 1
+
+        return {'current_streak': current, 'longest_streak': longest}

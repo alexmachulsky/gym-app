@@ -27,6 +27,8 @@ spec:
       labels:
         app: gym-postgres
     spec:
+      securityContext:
+        fsGroup: 999
       containers:
         - name: postgres
           image: postgres:16-alpine
@@ -34,6 +36,13 @@ spec:
           ports:
             - containerPort: 5432
               name: postgres
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: POSTGRES_DB
               value: gym_tracker

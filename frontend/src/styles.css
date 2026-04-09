@@ -2635,3 +2635,445 @@ td {
   justify-content: center;
   gap: 1rem;
 }
+
+/* ── Skeleton Loaders ────────────────────────────── */
+.skeleton {
+  background: var(--surface-2);
+  background-image: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--border) 40%,
+    var(--surface-2) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-card {
+  background: var(--surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.skeleton-stat .skeleton {
+  display: block;
+}
+
+.skeleton-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.skeleton-table-header,
+.skeleton-table-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+}
+.skeleton-table-header {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-dim);
+}
+.skeleton-table-row {
+  border-bottom: 1px solid var(--border-dim);
+}
+.skeleton-table-row:last-child {
+  border-bottom: none;
+}
+
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ── Route Transition ────────────────────────────── */
+.page-transition {
+  animation: fadeUp 420ms ease both;
+}
+
+/* ── Button Ripple Effect ────────────────────────── */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.btn-ripple .ripple-effect {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(0);
+  animation: rippleExpand 500ms ease-out forwards;
+  pointer-events: none;
+}
+@keyframes rippleExpand {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ── Streak Badge ────────────────────────────────── */
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Quick-Log Panel ─────────────────────────────── */
+.quick-log-panel {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.quick-log-panel textarea {
+  width: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  margin: 0.5rem 0;
+}
+.quick-log-hint {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.quick-log-hint code {
+  background: var(--surface-3);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+/* ── Drag-to-Reorder ─────────────────────────────── */
+.drag-handle {
+  cursor: grab;
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  user-select: none;
+  padding: 0 0.25rem;
+  opacity: 0.5;
+  transition: opacity 150ms;
+}
+.drag-handle:hover {
+  opacity: 1;
+}
+.set-row-card.dragging {
+  opacity: 0.4;
+  border-color: var(--accent);
+}
+
+/* ── Smart Default Hint ──────────────────────────── */
+.smart-default-hint {
+  all: unset;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--accent);
+  opacity: 0.7;
+  transition: opacity 150ms;
+  padding: 0.15rem 0;
+}
+.smart-default-hint:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ── Swipe-to-Complete ───────────────────────────── */
+.swipe-done-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 1.2rem;
+  background: var(--ok);
+  color: #000;
+  font-weight: 700;
+  font-size: 1.1rem;
+  border-radius: var(--radius-md);
+  z-index: 0;
+}
+.active-set-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+}
+
+/* ── Trial Banner ────────────────────────────────── */
+.trial-banner {
+  background: var(--lime-bg);
+  border: 1px solid var(--lime-border);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.trial-banner a {
+  font-weight: 600;
+}
+
+/* ── Onboarding Wizard ───────────────────────────── */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.onboarding-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2rem 2rem;
+  width: 100%;
+  max-width: 540px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.onboarding-progress {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 250ms;
+}
+
+.onboarding-dot.active {
+  background: var(--lime);
+}
+
+.onboarding-step h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem;
+}
+
+.onboarding-sub {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.2rem;
+}
+
+.onboarding-field {
+  margin-bottom: 1rem;
+}
+
+.onboarding-field label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.toggle-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toggle-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.toggle-btn:hover {
+  border-color: var(--lime-border);
+  color: var(--text);
+}
+
+.toggle-btn.active {
+  background: var(--lime-bg);
+  border-color: var(--lime);
+  color: var(--lime);
+  font-weight: 600;
+}
+
+.onboarding-exercise-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.onboarding-exercise-pill {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: all 150ms;
+}
+
+.onboarding-exercise-pill:hover {
+  border-color: var(--lime-border);
+}
+
+.onboarding-exercise-pill.selected {
+  background: var(--lime-bg);
+  border-color: var(--lime);
+}
+
+.pill-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pill-cat {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.onboarding-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0.6rem 0 0;
+}
+
+.onboarding-goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.onboarding-goal-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+  transition: all 150ms;
+}
+
+.onboarding-goal-item:hover {
+  border-color: var(--lime-border);
+}
+
+.onboarding-goal-item.selected {
+  background: var(--lime-bg);
+  border-color: var(--lime);
+  color: var(--lime);
+}
+
+.goal-icon {
+  font-size: 1.3rem;
+}
+
+.onboarding-final {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.onboarding-checkmark {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--lime-bg);
+  border: 2px solid var(--lime);
+  color: var(--lime);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+}
+
+.onboarding-summary {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.onboarding-summary li {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.onboarding-summary strong {
+  color: var(--text);
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── Keyboard Shortcut Badges ────────────────────── */
+kbd {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.68rem;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  opacity: 0.6;
+}

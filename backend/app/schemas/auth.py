@@ -36,6 +36,8 @@ class UserResponse(BaseModel):
     subscription_tier: str = 'free'
     email_verified: bool = False
     is_admin: bool = False
+    onboarding_completed: bool = False
+    trial_ends_at: datetime | None = None
     created_at: datetime
 
 
@@ -53,6 +55,7 @@ class RefreshRequest(BaseModel):
 class ProfileUpdateRequest(BaseModel):
     name: str | None = Field(None, max_length=120)
     avatar_url: str | None = Field(None, max_length=500)
+    onboarding_completed: bool | None = None
 
 
 class ChangePasswordRequest(BaseModel):

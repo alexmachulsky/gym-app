@@ -77,3 +77,11 @@ def get_muscle_recovery(
     current_user: User = Depends(require_pro),
 ):
     return ProgressionService.get_muscle_recovery(current_user.id, db)
+
+
+@router.get('/streak/current')
+def get_workout_streak(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return ProgressionService.get_workout_streak(current_user.id, db)

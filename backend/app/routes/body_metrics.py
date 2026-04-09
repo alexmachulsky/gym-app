@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.body_metric import BodyMetricCreateRequest, BodyMetricResponse
+from app.services.achievement_service import AchievementService
 from app.services.body_metric_service import BodyMetricService
 from app.utils.deps import get_current_user
 
@@ -18,18 +19,20 @@ def create_body_metric(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return BodyMetricService.create_metric(
+    metric = BodyMetricService.create_metric(
         db, current_user, payload.weight, payload.date,
         body_fat_percentage=payload.body_fat_percentage,
         muscle_mass=payload.muscle_mass,
         notes=payload.notes,
     )
+    AchievementService.check_after_body_metric(db, current_user.id)
+    return metric
 
 
 @router.get('', response_model=list[BodyMetricResponse])
 def list_body_metrics(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

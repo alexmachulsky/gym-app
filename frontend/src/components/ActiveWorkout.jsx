@@ -14,6 +14,99 @@ function formatElapsed(totalSeconds) {
     : `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function useSwipeToDone(onDone) {
+  const startX = useRef(0);
+  const currentX = useRef(0);
+  const swiping = useRef(false);
+  const elRef = useRef(null);
+  const THRESHOLD = 100;
+
+  const onTouchStart = useCallback((e) => {
+    startX.current = e.touches[0].clientX;
+    currentX.current = 0;
+    swiping.current = true;
+  }, []);
+
+  const onTouchMove = useCallback((e) => {
+    if (!swiping.current || !elRef.current) return;
+    const dx = e.touches[0].clientX - startX.current;
+    if (dx < 0) return; // only right swipe
+    currentX.current = dx;
+    elRef.current.style.transform = `translateX(${Math.min(dx, 160)}px)`;
+    elRef.current.style.opacity = String(1 - Math.min(dx / 250, 0.5));
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    swiping.current = false;
+    if (!elRef.current) return;
+    if (currentX.current >= THRESHOLD) {
+      elRef.current.style.transition = 'transform 200ms, opacity 200ms';
+      elRef.current.style.transform = 'translateX(160px)';
+      elRef.current.style.opacity = '0.3';
+      setTimeout(() => {
+        if (elRef.current) {
+          elRef.current.style.transition = '';
+          elRef.current.style.transform = '';
+          elRef.current.style.opacity = '';
+        }
+        onDone();
+      }, 200);
+    } else {
+      elRef.current.style.transition = 'transform 200ms, opacity 200ms';
+      elRef.current.style.transform = '';
+      elRef.current.style.opacity = '';
+      setTimeout(() => { if (elRef.current) elRef.current.style.transition = ''; }, 200);
+    }
+  }, [onDone]);
+
+  return { elRef, onTouchStart, onTouchMove, onTouchEnd };
+}
+
+function SwipeableSetCard({ s, idx, isCurrent, exerciseNameById, updateSet, markDone }) {
+  const name = exerciseNameById.get(s.exercise_id) || 'Exercise';
+  const { elRef, onTouchStart, onTouchMove, onTouchEnd } = useSwipeToDone(() => markDone(idx));
+
+  return (
+    <div className={`active-set-card${s.done ? ' done' : ''}${isCurrent ? ' current' : ''}`} style={{ position: 'relative', overflow: 'hidden' }}>
+      {!s.done && <div className="swipe-done-bg">✓ Done</div>}
+      <div
+        ref={!s.done ? elRef : undefined}
+        className="active-set-inner"
+        onTouchStart={!s.done ? onTouchStart : undefined}
+        onTouchMove={!s.done ? onTouchMove : undefined}
+        onTouchEnd={!s.done ? onTouchEnd : undefined}
+      >
+        <img src={getExerciseImageByName(name)} alt={name} loading="lazy" />
+        <div className="active-set-body">
+          <strong>{name}</strong>
+          <div className="active-set-inputs">
+            <input
+              type="number" step="0.5" min="0" placeholder="Weight"
+              value={s.weight} onChange={(e) => updateSet(idx, 'weight', e.target.value)}
+              disabled={s.done}
+            />
+            <input
+              type="number" min="1" placeholder="Reps"
+              value={s.reps} onChange={(e) => updateSet(idx, 'reps', e.target.value)}
+              disabled={s.done}
+            />
+            <input
+              type="number" min="1" placeholder="Sets"
+              value={s.sets} onChange={(e) => updateSet(idx, 'sets', e.target.value)}
+              disabled={s.done}
+            />
+            {!s.done ? (
+              <button type="button" onClick={() => markDone(idx)} style={{ width: 'auto' }}>✓ Done</button>
+            ) : (
+              <span className="chip" style={{ alignSelf: 'center' }}>✓</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ActiveWorkout({ exercises, exerciseNameById, onFinish, onCancel }) {
   const { addToast } = useToast();
   const [sets, setSets] = useState([]);         // [{exercise_id, weight, reps, sets, done}]
@@ -130,37 +223,17 @@ export default function ActiveWorkout({ exercises, exerciseNameById, onFinish, o
       {/* Set list */}
       <div className="active-set-list">
         {sets.map((s, idx) => {
-          const name = exerciseNameById.get(s.exercise_id) || 'Exercise';
           const isCurrent = idx === currentIdx;
           return (
-            <div key={idx} className={`active-set-card${s.done ? ' done' : ''}${isCurrent ? ' current' : ''}`}>
-              <img src={getExerciseImageByName(name)} alt={name} loading="lazy" />
-              <div className="active-set-body">
-                <strong>{name}</strong>
-                <div className="active-set-inputs">
-                  <input
-                    type="number" step="0.5" min="0" placeholder="Weight"
-                    value={s.weight} onChange={(e) => updateSet(idx, 'weight', e.target.value)}
-                    disabled={s.done}
-                  />
-                  <input
-                    type="number" min="1" placeholder="Reps"
-                    value={s.reps} onChange={(e) => updateSet(idx, 'reps', e.target.value)}
-                    disabled={s.done}
-                  />
-                  <input
-                    type="number" min="1" placeholder="Sets"
-                    value={s.sets} onChange={(e) => updateSet(idx, 'sets', e.target.value)}
-                    disabled={s.done}
-                  />
-                  {!s.done ? (
-                    <button type="button" onClick={() => markDone(idx)} style={{ width: 'auto' }}>✓ Done</button>
-                  ) : (
-                    <span className="chip" style={{ alignSelf: 'center' }}>✓</span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <SwipeableSetCard
+              key={idx}
+              s={s}
+              idx={idx}
+              isCurrent={isCurrent}
+              exerciseNameById={exerciseNameById}
+              updateSet={updateSet}
+              markDone={markDone}
+            />
           );
         })}
       </div>

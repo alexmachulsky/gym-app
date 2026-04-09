@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict
 
 class CheckoutRequest(BaseModel):
     plan: str  # pro_monthly | pro_yearly
+    promotion_code: str | None = None
 
 
 class CheckoutResponse(BaseModel):

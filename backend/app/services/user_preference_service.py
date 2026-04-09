@@ -26,6 +26,14 @@ class UserPreferenceService:
             pref.distance_unit = payload.distance_unit
         if payload.rest_timer_default is not None:
             pref.rest_timer_default = payload.rest_timer_default
+        if payload.push_enabled is not None:
+            pref.push_enabled = payload.push_enabled
+        if payload.reminder_days is not None:
+            pref.reminder_days = payload.reminder_days
+        if payload.reminder_time is not None:
+            pref.reminder_time = payload.reminder_time
+        if payload.weekly_summary_enabled is not None:
+            pref.weekly_summary_enabled = payload.weekly_summary_enabled
 
         db.commit()
         db.refresh(pref)

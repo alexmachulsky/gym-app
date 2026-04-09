@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import api from '../api/client';
+import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../hooks/useToast';
 import { useSubscription } from '../hooks/useSubscription';
 
@@ -150,7 +151,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (isLoading) return <section className="panel fade-in"><p style={{ color: 'var(--text-muted)' }}>Loading…</p></section>;
+  if (isLoading) return <PageSkeleton variant="settings" />;
   if (!settings) return null;
 
   const labelStyle = { display: 'grid', gap: '0.35rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.8rem' };

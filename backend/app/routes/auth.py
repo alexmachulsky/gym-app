@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.limiter import limiter
-from app.core.security import safe_decode_access_token
+from app.core.security import decode_access_token, safe_decode_access_token
 from app.models.user import User
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -39,11 +40,14 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
 
 
 @router.post('/refresh', response_model=TokenResponse)
-def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
-    data = safe_decode_access_token(payload.refresh_token)
-    if not data or data.get('type') != 'refresh':
+@limiter.limit('10/minute')
+def refresh_token(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
+    try:
+        data = decode_access_token(payload.refresh_token)
+    except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
-
+    if data.get('type') != 'refresh':
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token type')
     user_id = data.get('sub')
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid refresh token')
@@ -62,7 +66,13 @@ def update_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return AuthService.update_profile(db, current_user, payload.name, payload.avatar_url)
+    return AuthService.update_profile(
+        db,
+        current_user,
+        payload.name,
+        payload.avatar_url,
+        payload.onboarding_completed,
+    )
 
 
 @router.post('/change-password', status_code=status.HTTP_204_NO_CONTENT)
@@ -89,7 +99,8 @@ def reset_password(request: Request, payload: ResetPasswordRequest, db: Session 
 
 
 @router.post('/verify-email', status_code=status.HTTP_200_OK)
-def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+@limiter.limit('10/minute')
+def verify_email(request: Request, payload: VerifyEmailRequest, db: Session = Depends(get_db)):
     AuthService.verify_email(db, payload.token)
     return {'detail': 'Email verified successfully.'}
 
@@ -111,3 +122,10 @@ def delete_account(
     current_user: User = Depends(get_current_user),
 ):
     AuthService.delete_account(db, current_user)
+
+
+@router.post('/logout', status_code=status.HTTP_204_NO_CONTENT)
+def logout(response: Response):
+    response.delete_cookie('access_token')
+    response.delete_cookie('refresh_token', path='/auth/refresh')
+

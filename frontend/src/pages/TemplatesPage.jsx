@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
+import { PageSkeleton } from '../components/Skeleton';
 import UsageMeter from '../components/UsageMeter';
 import { useToast } from '../hooks/useToast';
 
@@ -118,7 +119,7 @@ export default function TemplatesPage() {
     }
   };
 
-  if (isLoading) return <section className="panel fade-in"><p style={{ color: 'var(--text-muted)' }}>Loading…</p></section>;
+  if (isLoading) return <PageSkeleton variant="cards" />;
 
   return (
     <section className="panel fade-in">

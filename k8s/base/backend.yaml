@@ -33,11 +33,18 @@ spec:
           ports:
             - containerPort: 8000
               name: http
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: DATABASE_URL
               valueFrom:
-                configMapKeyRef:
-                  name: gym-config
+                secretKeyRef:
+                  name: gym-secrets
                   key: DATABASE_URL
             - name: ACCESS_TOKEN_EXPIRE_MINUTES
               valueFrom:

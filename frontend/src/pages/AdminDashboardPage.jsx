@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import api from '../api/client';
+import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../hooks/useToast';
 
 export default function AdminDashboardPage() {
@@ -94,7 +95,7 @@ export default function AdminDashboardPage() {
   };
 
   if (isLoading) {
-    return <section className="panel fade-in"><p style={{ color: 'var(--text-muted)' }}>Loading…</p></section>;
+    return <PageSkeleton variant="admin" />;
   }
 
   return (

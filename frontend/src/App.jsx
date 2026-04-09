@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -29,43 +30,45 @@ export default function App() {
   return (
     <ToastProvider>
       <ToastContainer />
-      <Routes>
-        {/* Public marketing pages */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
+      <ErrorBoundary>
+        <Routes>
+          {/* Public marketing pages */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
 
-        {/* Auth pages */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
+          {/* Auth pages */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-        {/* Authenticated app */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <SubscriptionProvider>
-                <Layout />
-              </SubscriptionProvider>
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/exercises" element={<ExercisesPage />} />
-          <Route path="/workouts" element={<WorkoutsPage />} />
-          <Route path="/body-metrics" element={<BodyMetricsPage />} />
-          <Route path="/progress" element={<ProgressPage />} />
-          <Route path="/templates" element={<TemplatesPage />} />
-          <Route path="/goals" element={<GoalsPage />} />
-          <Route path="/ai-coach" element={<AICoachPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/admin" element={<AdminDashboardPage />} />
-        </Route>
+          {/* Authenticated app */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <SubscriptionProvider>
+                  <Layout />
+                </SubscriptionProvider>
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/exercises" element={<ExercisesPage />} />
+            <Route path="/workouts" element={<WorkoutsPage />} />
+            <Route path="/body-metrics" element={<BodyMetricsPage />} />
+            <Route path="/progress" element={<ProgressPage />} />
+            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/goals" element={<GoalsPage />} />
+            <Route path="/ai-coach" element={<AICoachPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<AdminDashboardPage />} />
+          </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </ErrorBoundary>
     </ToastProvider>
   );
 }

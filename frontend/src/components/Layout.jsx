@@ -13,12 +13,14 @@ import olympicImage from '../assets/photos/olympic.jpg';
 import shouldersImage from '../assets/photos/shoulders.jpg';
 import api from '../api/client';
 import LogoMark from './LogoMark';
+import OnboardingWizard from './OnboardingWizard';
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [userEmail, setUserEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +31,9 @@ export default function Layout() {
         if (active) {
           setUserEmail(response.data.email || '');
           setIsAdmin(response.data.is_admin || false);
+          if (!response.data.onboarding_completed) {
+            setShowOnboarding(true);
+          }
         }
       } catch {
         if (active) {
@@ -142,6 +147,8 @@ export default function Layout() {
   };
 
   return (
+    <>
+    {showOnboarding && <OnboardingWizard onComplete={() => setShowOnboarding(false)} />}
     <div className="app-stage">
       <aside className="side-visual side-visual-left" key={`${location.pathname}-left`} aria-hidden="true">
         <img src={pageView.sideLeftImage} alt="" loading="eager" />
@@ -179,7 +186,9 @@ export default function Layout() {
         </section>
 
         <main className="page-content">
-          <Outlet />
+          <div className="page-transition" key={location.pathname}>
+            <Outlet />
+          </div>
         </main>
       </div>
 
@@ -187,5 +196,6 @@ export default function Layout() {
         <img src={pageView.sideRightImage} alt="" loading="eager" />
       </aside>
     </div>
+    </>
   );
 }

@@ -9,5 +9,6 @@ resources:
   - app-secrets.yaml
   - postgres.yaml
   - backend.yaml
+  - backend-hpa.yaml
   - frontend.yaml
   - ingress.yaml

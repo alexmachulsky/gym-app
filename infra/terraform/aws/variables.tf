@@ -57,3 +57,9 @@ variable "node_max_size" {
   type        = number
   default     = 3
 }
+
+variable "db_password" {
+  description = "Master password for the RDS PostgreSQL instance"
+  type        = string
+  sensitive   = true
+}

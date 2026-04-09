@@ -280,6 +280,28 @@ class WorkoutService:
             ]
         return workouts
 
+    @staticmethod
+    def get_last_sets(db: Session, user: User, exercise_id: uuid.UUID):
+        """Return the most recent workout sets for a given exercise."""
+        latest_set = (
+            db.query(WorkoutSet)
+            .join(Workout, WorkoutSet.workout_id == Workout.id)
+            .filter(
+                Workout.user_id == user.id,
+                WorkoutSet.exercise_id == exercise_id,
+            )
+            .order_by(Workout.date.desc(), Workout.created_at.desc())
+            .first()
+        )
+        if not latest_set:
+            return None
+        return {
+            'exercise_id': str(latest_set.exercise_id),
+            'weight': latest_set.weight,
+            'reps': latest_set.reps,
+            'sets': latest_set.sets,
+        }
+
 
 def workout_to_response(workout: Workout, new_records: list[PersonalRecordItem] | None = None) -> WorkoutResponse:
     sets = [

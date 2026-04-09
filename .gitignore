@@ -20,6 +20,10 @@ crash.log
 
 # Editor
 .vscode/
+.cursor/
+
+# Local SQLite (dev)
+backend/gym_tracker.db
 
 # Git worktrees
 .worktrees/

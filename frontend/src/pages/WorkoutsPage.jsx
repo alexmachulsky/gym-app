@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import api from '../api/client';
+import Confetti from '../components/Confetti';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RestTimer from '../components/RestTimer';
@@ -10,9 +11,21 @@ import ActiveWorkout from '../components/ActiveWorkout';
 import WorkoutShareCard from '../components/WorkoutShareCard';
 import { getExerciseImageByName, getStretchSuggestionsForExercises } from '../data/exerciseLibrary';
 import { useToast } from '../hooks/useToast';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useCountUp } from '../hooks/useCountUp';
 import { parseWorkoutText } from '../utils/workoutParser';
 
 const makeSetRow = () => ({ exercise_id: '', weight: '', reps: '', sets: '' });
+
+function StatCard({ label, value, format }) {
+  const animated = useCountUp(value);
+  return (
+    <article className="stat-card stagger-item">
+      <h3>{label}</h3>
+      <p>{format === 'locale' ? animated.toLocaleString() : animated}</p>
+    </article>
+  );
+}
 
 function formatElapsed(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
@@ -65,10 +78,24 @@ export default function WorkoutsPage() {
   const [activeMode, setActiveMode] = useState(false);
   const [stretchTips, setStretchTips] = useState([]);
   const [sharingWorkout, setSharingWorkout] = useState(null);
+  const [streak, setStreak] = useState(null);
+  const [showQuickLog, setShowQuickLog] = useState(false);
+  const [quickLogText, setQuickLogText] = useState('');
+  const [lastSetHints, setLastSetHints] = useState({});
+  const [dragIndex, setDragIndex] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const dateError = dateTouched && workoutDate && workoutDate > new Date().toISOString().slice(0, 10)
     ? 'Workout date cannot be in the future'
     : '';
+
+  const formRef = useRef(null);
+
+  useKeyboardShortcuts([
+    { key: 'n', handler: () => { setWorkoutDate(new Date().toISOString().slice(0, 10)); window.scrollTo({ top: 0, behavior: 'smooth' }); } },
+    { key: 's', ctrl: true, handler: () => { formRef.current?.requestSubmit(); } },
+    { key: 'Escape', handler: () => { setShowQuickLog(false); setShowImport(false); setShowGenerate(false); } },
+  ]);
 
   const exerciseNameById = useMemo(
     () => new Map(exercises.map((exercise) => [exercise.id, exercise.name])),
@@ -91,6 +118,7 @@ export default function WorkoutsPage() {
     const [exerciseRes, workoutRes] = await Promise.all([api.get('/exercises'), api.get('/workouts')]);
     setExercises(exerciseRes.data);
     setWorkouts(workoutRes.data);
+    api.get('/progress/streak/current').then(r => setStreak(r.data)).catch(() => {});
   };
 
   useEffect(() => {
@@ -225,6 +253,24 @@ export default function WorkoutsPage() {
     const clone = [...rows];
     clone[index][key] = value;
     setRows(clone);
+
+    // Smart defaults: fetch last sets when exercise changes
+    if (key === 'exercise_id' && value) {
+      if (lastSetHints[value]) return; // Already cached
+      api.get(`/workouts/last-sets/${value}`).then(r => {
+        if (r.data.last_sets) {
+          setLastSetHints(prev => ({ ...prev, [value]: r.data.last_sets }));
+        }
+      }).catch(() => {});
+    }
+  };
+
+  const applyLastSets = (index, exerciseId) => {
+    const hint = lastSetHints[exerciseId];
+    if (!hint) return;
+    const clone = [...rows];
+    clone[index] = { ...clone[index], weight: String(hint.weight), reps: String(hint.reps), sets: String(hint.sets) };
+    setRows(clone);
   };
 
   const addRow = () => setRows((prev) => [...prev, makeSetRow()]);
@@ -233,6 +279,40 @@ export default function WorkoutsPage() {
     if (rows.length === 1) return;
     setRows(rows.filter((_, i) => i !== index));
   };
+
+  // Quick-log: parse text and populate rows
+  const applyQuickLog = useCallback(() => {
+    const parsed = parseWorkoutText(quickLogText);
+    if (parsed.length === 0) {
+      addToast('No valid lines found. Use format: Exercise 3x8 @80', 'error');
+      return;
+    }
+    const exerciseNameToId = new Map(exercises.map((e) => [e.name.toLowerCase(), e.id]));
+    const newRows = parsed.map((p) => ({
+      exercise_id: exerciseNameToId.get(p.name.toLowerCase()) || '',
+      weight: String(p.weight),
+      reps: String(p.reps),
+      sets: String(p.sets),
+    }));
+    setRows(newRows);
+    setWorkoutDate(new Date().toISOString().slice(0, 10));
+    setShowQuickLog(false);
+    setQuickLogText('');
+    addToast(`${parsed.length} exercise(s) loaded from quick-log`, 'info');
+  }, [quickLogText, exercises, addToast]);
+
+  // Drag-to-reorder
+  const handleDragStart = (index) => setDragIndex(index);
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) return;
+    const clone = [...rows];
+    const [moved] = clone.splice(dragIndex, 1);
+    clone.splice(index, 0, moved);
+    setRows(clone);
+    setDragIndex(index);
+  };
+  const handleDragEnd = () => setDragIndex(null);
 
   const createWorkout = async (event) => {
     event.preventDefault();
@@ -262,6 +342,8 @@ export default function WorkoutsPage() {
       setDurationMinutes('');
       if (res.data.new_records && res.data.new_records.length > 0) {
         setLastRecords(res.data.new_records);
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
         res.data.new_records.forEach((r) => addToast(`🏆 PR! ${r.exercise_name}: ${r.record_type} → ${r.new_value}`, 'success'));
       }
       stopTimer();
@@ -288,24 +370,23 @@ export default function WorkoutsPage() {
 
   return (
     <section className="panel fade-in">
+      {showConfetti && <Confetti />}
       <div className="panel-heading">
-        <h2>Workout Log</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <h2>Workout Log</h2>
+          {streak && streak.current_streak > 0 && (
+            <span className="streak-badge" title={`Longest streak: ${streak.longest_streak} days`}>
+              🔥 {streak.current_streak} day{streak.current_streak !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
         <p>Capture sessions with set-level detail and watch total workload build over time.</p>
       </div>
 
       <div className="stats-grid">
-        <article className="stat-card stagger-item">
-          <h3>Sessions</h3>
-          <p>{metrics.totalSessions}</p>
-        </article>
-        <article className="stat-card stagger-item">
-          <h3>Total Sets</h3>
-          <p>{metrics.totalSets}</p>
-        </article>
-        <article className="stat-card stagger-item">
-          <h3>Total Volume</h3>
-          <p>{metrics.totalVolume.toLocaleString()}</p>
-        </article>
+        <StatCard label="Sessions" value={metrics.totalSessions} />
+        <StatCard label="Total Sets" value={metrics.totalSets} />
+        <StatCard label="Total Volume" value={metrics.totalVolume} format="locale" />
       </div>
 
       <div className="workout-timer-bar">
@@ -319,6 +400,7 @@ export default function WorkoutsPage() {
         )}
         <button type="button" className="ghost-btn" onClick={() => setShowGenerate(true)} style={{ width: 'auto' }}>⚡ Generate Workout</button>
         <button type="button" className="ghost-btn" onClick={() => setShowImport(true)} style={{ width: 'auto' }}>📋 Import Text</button>
+        <button type="button" className="ghost-btn" onClick={() => setShowQuickLog(!showQuickLog)} style={{ width: 'auto' }}>⚡ Quick Log</button>
         <button type="button" className="ghost-btn" onClick={showStretchSuggestions} style={{ width: 'auto' }}>🧘 Warm-Up Tips</button>
         <button type="button" className="ghost-btn" onClick={() => setActiveMode(true)} style={{ width: 'auto' }}>🏋️ Active Mode</button>
       </div>
@@ -333,6 +415,23 @@ export default function WorkoutsPage() {
         </div>
       )}
 
+      {showQuickLog && (
+        <div className="quick-log-panel">
+          <p className="quick-log-hint">Type exercises, one per line: <code>Bench Press 3x8 @80</code></p>
+          <textarea
+            rows={4}
+            placeholder={"Bench Press 3x8 @80\nSquat 5x5 @100\nPull Ups 3x10"}
+            value={quickLogText}
+            onChange={(e) => setQuickLogText(e.target.value)}
+            autoFocus
+          />
+          <div className="button-row">
+            <button type="button" className="ghost-btn" onClick={() => { setShowQuickLog(false); setQuickLogText(''); }}>Cancel</button>
+            <button type="button" onClick={applyQuickLog}>Populate Rows</button>
+          </div>
+        </div>
+      )}
+
       {activeMode ? (
         <ActiveWorkout
           exercises={exercises}
@@ -343,7 +442,7 @@ export default function WorkoutsPage() {
       ) : (
       <>
       <div className="workout-form-rest-wrap">
-      <form className="workout-form" onSubmit={createWorkout}>
+      <form className="workout-form" onSubmit={createWorkout} ref={formRef}>
         <label>
           Workout Date
           <input
@@ -392,7 +491,15 @@ export default function WorkoutsPage() {
           {rows.map((row, index) => {
             const selectedName = exerciseNameById.get(row.exercise_id) || 'Exercise';
             return (
-              <div className="set-row-card" key={`${index}-${row.exercise_id || 'empty'}`}>
+              <div
+                className={`set-row-card${dragIndex === index ? ' dragging' : ''}`}
+                key={`${index}-${row.exercise_id || 'empty'}`}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+              >
+                <span className="drag-handle" title="Drag to reorder">⠿</span>
                 <img src={getExerciseImageByName(selectedName)} alt={selectedName} loading="lazy" />
                 <div className="set-row-controls">
                   <select
@@ -408,6 +515,16 @@ export default function WorkoutsPage() {
                       </option>
                     ))}
                   </select>
+                  {row.exercise_id && lastSetHints[row.exercise_id] && !row.weight && !row.reps && !row.sets && (
+                    <button
+                      type="button"
+                      className="smart-default-hint"
+                      onClick={() => applyLastSets(index, row.exercise_id)}
+                      title="Apply last session values"
+                    >
+                      Last: {lastSetHints[row.exercise_id].weight}kg × {lastSetHints[row.exercise_id].reps} × {lastSetHints[row.exercise_id].sets}
+                    </button>
+                  )}
                   <input
                     type="number"
                     step="0.5"
@@ -455,7 +572,7 @@ export default function WorkoutsPage() {
         <div className="button-row">
           <button type="button" className="ghost-btn" onClick={addRow} disabled={isSubmitting}>Add Set</button>
           <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving…' : 'Log Workout'}
+            {isSubmitting ? 'Saving…' : <>Log Workout <kbd>⌘S</kbd></>}
           </button>
         </div>
       </form>

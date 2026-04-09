@@ -7,14 +7,17 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import setup_logging
+from app.routes.achievements import router as achievements_router
 from app.routes.admin import router as admin_router
 from app.routes.ai import router as ai_router
+from app.routes.api_v1 import router as api_v1_router
 from app.routes.auth import router as auth_router
 from app.routes.billing import router as billing_router
 from app.routes.body_metrics import router as body_metrics_router
@@ -23,8 +26,11 @@ from app.routes.exercises import router as exercises_router
 from app.routes.export import router as export_router
 from app.routes.goals import router as goals_router
 from app.routes.health import router as health_router
+from app.routes.notifications import router as notifications_router
+from app.routes.organizations import router as organizations_router
 from app.routes.progress import router as progress_router
 from app.routes.settings import router as settings_router
+from app.routes.social import router as social_router
 from app.routes.templates import router as templates_router
 from app.routes.workouts import router as workouts_router
 
@@ -34,13 +40,23 @@ logger = logging.getLogger('gym_tracker')
 if settings.sentry_dsn:
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
-        traces_sample_rate=0.1,
-        profiles_sample_rate=0.1,
+        traces_sample_rate=0.3,
+        profiles_sample_rate=0.3,
     )
 
 app = FastAPI(title=settings.app_name, version='1.0.0')
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.middleware('http')
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,6 +66,8 @@ app.add_middleware(
     allow_headers=['Authorization', 'Content-Type'],
 )
 
+Instrumentator().instrument(app).expose(app, endpoint='/metrics', include_in_schema=False)
+
 
 @app.middleware('http')
 async def request_logging_middleware(request: Request, call_next):
@@ -58,6 +76,29 @@ async def request_logging_middleware(request: Request, call_next):
 
     try:
         response = await call_next(request)
+        # Update last_active_at for authenticated users
+        auth_header = request.headers.get('authorization', '')
+        if auth_header.startswith('Bearer ') and response.status_code < 400:
+            try:
+                from app.core.security import decode_access_token
+                from app.core.database import SessionLocal
+                from app.models.user import User
+                import uuid as uuid_mod
+                from datetime import datetime, timezone
+
+                payload = decode_access_token(auth_header[7:])
+                user_id = uuid_mod.UUID(payload.get('sub', ''))
+                db = SessionLocal()
+                try:
+                    db.query(User).filter(User.id == user_id).update(
+                        {'last_active_at': datetime.now(timezone.utc)},
+                        synchronize_session=False,
+                    )
+                    db.commit()
+                finally:
+                    db.close()
+            except Exception:
+                pass
     except Exception:
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
         logger.exception(
@@ -112,9 +153,9 @@ async def validation_exception_handler(_: Request, exc: RequestValidationError):
 async def on_startup():
     logger.info('Application startup')
     if settings.secret_key == 'change-me-in-production':
-        logger.critical(
+        raise RuntimeError(
             'SECRET_KEY is set to the default insecure value. '
-            'Set a strong SECRET_KEY in your environment before deploying to production.'
+            'Set a strong SECRET_KEY in your environment before starting.'
         )
 
 
@@ -137,3 +178,8 @@ app.include_router(export_router)
 app.include_router(equipment_profiles_router)
 app.include_router(ai_router)
 app.include_router(admin_router)
+app.include_router(achievements_router)
+app.include_router(notifications_router)
+app.include_router(social_router)
+app.include_router(api_v1_router)
+app.include_router(organizations_router)

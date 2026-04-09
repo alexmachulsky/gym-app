@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -21,6 +21,30 @@ def get_stats(
     _admin: User = Depends(require_admin),
 ):
     return AdminService.get_stats(db)
+
+
+@router.get('/business-metrics')
+def get_business_metrics(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return AdminService.get_business_metrics(db)
+
+
+@router.get('/segments')
+def get_user_segments(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return AdminService.get_user_segments(db)
+
+
+@router.get('/funnel')
+def get_signup_funnel(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return AdminService.get_signup_funnel(db)
 
 
 @router.get('/users', response_model=list[AdminUserSummary])
@@ -49,15 +73,17 @@ def update_user(
     user_id: uuid.UUID,
     body: AdminUserUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_admin),
 ):
-    return AdminService.update_user(db, user_id, body.model_dump(exclude_unset=True))
+    return AdminService.update_user(db, current_admin, user_id, body.model_dump(exclude_unset=True))
 
 
 @router.post('/users/{user_id}/impersonate')
 def impersonate_user(
     user_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_admin),
 ):
-    return AdminService.impersonate_user(db, user_id)
+    ip = request.client.host if request.client else None
+    return AdminService.impersonate_user(db, current_admin, user_id, ip)

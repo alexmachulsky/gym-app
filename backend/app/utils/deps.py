@@ -1,8 +1,10 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
@@ -27,6 +29,8 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     )
     try:
         payload = decode_access_token(token)
+        if payload.get('type') != 'access':
+            raise credentials_exception
         subject = payload.get('sub')
         if subject is None:
             raise credentials_exception
@@ -45,8 +49,21 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     return user
 
 
+def _user_has_pro_access(user: User) -> bool:
+    """Return True if the user has pro tier or an active trial."""
+    if user.subscription_tier == 'pro':
+        return True
+    if user.trial_ends_at:
+        trial_end = user.trial_ends_at
+        if trial_end.tzinfo is None:
+            trial_end = trial_end.replace(tzinfo=timezone.utc)
+        if trial_end > datetime.now(timezone.utc):
+            return True
+    return False
+
+
 def require_pro(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.subscription_tier != 'pro':
+    if not _user_has_pro_access(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail='Pro subscription required',
@@ -56,11 +73,12 @@ def require_pro(current_user: User = Depends(get_current_user)) -> User:
 
 def check_free_limit(db: Session, user: User, model_class, resource: str) -> None:
     """Raise 403 if a free-tier user has reached their limit for the given resource."""
-    if user.subscription_tier == 'pro':
+    if _user_has_pro_access(user):
         return
     limit = FREE_LIMITS.get(resource)
     if limit is None:
         return
+    db.query(User).filter(User.id == user.id).with_for_update().first()
     count = db.query(model_class).filter(model_class.user_id == user.id).count()
     if count >= limit:
         raise HTTPException(
@@ -73,16 +91,16 @@ def get_user_limits(db: Session, user: User) -> dict:
     """Return usage counts and limits for the user's tier."""
     from app.models.exercise import Exercise
     from app.models.goal import Goal
-    from app.models.template import WorkoutTemplate
+    from app.models.workout_template import WorkoutTemplate
 
-    is_pro = user.subscription_tier == 'pro'
+    is_pro = _user_has_pro_access(user)
 
     exercise_count = db.query(Exercise).filter(Exercise.user_id == user.id).count()
     template_count = db.query(WorkoutTemplate).filter(WorkoutTemplate.user_id == user.id).count()
     goal_count = db.query(Goal).filter(Goal.user_id == user.id).count()
 
     return {
-        'tier': user.subscription_tier,
+        'tier': 'pro' if is_pro else user.subscription_tier,
         'exercises': {
             'used': exercise_count,
             'limit': None if is_pro else FREE_LIMITS['exercises'],

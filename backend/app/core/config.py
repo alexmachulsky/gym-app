@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,8 +11,17 @@ class Settings(BaseSettings):
     database_url: str = 'sqlite+pysqlite:///./gym_tracker.db'
     secret_key: str = 'change-me-in-production'
     access_token_expire_minutes: int = 60
-    refresh_token_expire_days: int = 30
+    refresh_token_expire_days: int = 7
     algorithm: str = 'HS256'
+
+    @field_validator('algorithm')
+    @classmethod
+    def validate_algorithm(cls, v: str) -> str:
+        allowed = {'HS256', 'HS384', 'HS512'}
+        if v not in allowed:
+            raise ValueError(f"JWT algorithm must be one of {allowed}")
+        return v
+
     log_level: str = 'INFO'
     frontend_origin: str = 'http://localhost:5173'
     frontend_origins: str = 'http://localhost:5173,http://127.0.0.1:5173'

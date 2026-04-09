@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import api from '../api/client';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Confetti from '../components/Confetti';
 import EmptyState from '../components/EmptyState';
+import { PageSkeleton } from '../components/Skeleton';
 import UsageMeter from '../components/UsageMeter';
 import { useToast } from '../hooks/useToast';
 
@@ -26,6 +28,8 @@ export default function GoalsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const prevAchievedRef = useRef(new Set());
   const [form, setForm] = useState({
     goal_type: 'workouts_per_week',
     target_value: '3',
@@ -83,7 +87,7 @@ export default function GoalsPage() {
     }
   };
 
-  if (isLoading) return <section className="panel fade-in"><p style={{ color: 'var(--text-muted)' }}>Loading…</p></section>;
+  if (isLoading) return <PageSkeleton variant="cards" />;
 
   return (
     <section className="panel fade-in">

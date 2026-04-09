@@ -135,3 +135,107 @@ class EmailService:
         </div>
         """
         EmailService._send(email, 'Action needed: payment failed', html)
+
+    @staticmethod
+    def send_dunning_reminder(email: str, name: str | None, days_overdue: int) -> None:
+        greeting = f'Hi {name},' if name else 'Hi there,'
+        html = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2 style="color:#f59e0b">Payment overdue ({days_overdue} days)</h2>
+            <p>{greeting}</p>
+            <p>Your payment is {days_overdue} days overdue. Please update your payment method to keep your Pro features active. Your Pro access will be suspended after 7 days.</p>
+            <a href="{settings.app_url}/settings"
+               style="display:inline-block;padding:12px 28px;background:#a3e635;color:#000;
+                      border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                Update Payment
+            </a>
+        </div>
+        """
+        EmailService._send(email, f'Payment overdue — {days_overdue} days', html)
+
+    # ── trial emails ─────────────────────────────────
+
+    @staticmethod
+    def send_trial_started_email(email: str, name: str | None) -> None:
+        greeting = f'Hi {name},' if name else 'Hi there,'
+        html = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2 style="color:#a3e635">Your 14-day Pro trial has started! 🎉</h2>
+            <p>{greeting}</p>
+            <p>You now have full access to every Pro feature for the next 14 days — no credit card required.</p>
+            <ul style="color:#888;font-size:14px;line-height:1.8">
+                <li>AI Training Coach</li>
+                <li>Advanced progress analytics</li>
+                <li>Unlimited templates and goals</li>
+                <li>Data export</li>
+                <li>Equipment profiles</li>
+            </ul>
+            <a href="{settings.app_url}/ai-coach"
+               style="display:inline-block;padding:12px 28px;background:#a3e635;color:#000;
+                      border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                Try the AI Coach
+            </a>
+            <p style="color:#888;font-size:13px">Upgrade anytime from Settings to keep access after your trial.</p>
+        </div>
+        """
+        EmailService._send(email, 'Your 14-day Pro trial has started', html)
+
+    @staticmethod
+    def send_trial_midpoint_email(email: str, name: str | None) -> None:
+        greeting = f'Hi {name},' if name else 'Hi there,'
+        html = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2 style="color:#a3e635">7 days of your Pro trial remaining</h2>
+            <p>{greeting}</p>
+            <p>You're halfway through your free trial. Have you tried the AI Coach yet?</p>
+            <p>Chat with your personal AI training coach, get exercise tips, and auto-generate workouts from plain text.</p>
+            <a href="{settings.app_url}/ai-coach"
+               style="display:inline-block;padding:12px 28px;background:#a3e635;color:#000;
+                      border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                Open AI Coach
+            </a>
+            <a href="{settings.app_url}/settings"
+               style="display:inline-block;padding:12px 28px;background:transparent;color:#a3e635;
+                      border:1px solid #a3e635;border-radius:8px;text-decoration:none;font-weight:600;
+                      margin:16px 0 0 8px">
+                Upgrade to Pro
+            </a>
+        </div>
+        """
+        EmailService._send(email, 'Reminder: 7 days left in your Pro trial', html)
+
+    @staticmethod
+    def send_trial_ending_email(email: str, name: str | None) -> None:
+        greeting = f'Hi {name},' if name else 'Hi there,'
+        html = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2 style="color:#f59e0b">Your Pro trial ends in 2 days</h2>
+            <p>{greeting}</p>
+            <p>Your 14-day Pro trial is almost over. Upgrade now to keep uninterrupted access to all Pro features.</p>
+            <a href="{settings.app_url}/settings"
+               style="display:inline-block;padding:12px 28px;background:#a3e635;color:#000;
+                      border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                Upgrade to Pro — from $4.99/mo
+            </a>
+            <p style="color:#888;font-size:13px">Save 50% with the yearly plan ($29.99/yr).</p>
+        </div>
+        """
+        EmailService._send(email, 'Your Pro trial ends in 2 days', html)
+
+    @staticmethod
+    def send_trial_expired_email(email: str, name: str | None) -> None:
+        greeting = f'Hi {name},' if name else 'Hi there,'
+        html = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2>Your Pro trial has ended</h2>
+            <p>{greeting}</p>
+            <p>Your 14-day free trial has ended and your account has reverted to the free plan. Your workout data is safe.</p>
+            <p>Upgrade to Pro to regain access to AI Coach, advanced analytics, unlimited templates, and data export.</p>
+            <a href="{settings.app_url}/settings"
+               style="display:inline-block;padding:12px 28px;background:#a3e635;color:#000;
+                      border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                Upgrade to Pro
+            </a>
+        </div>
+        """
+        EmailService._send(email, 'Your Pro trial has ended', html)

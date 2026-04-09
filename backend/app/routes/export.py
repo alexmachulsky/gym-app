@@ -2,11 +2,12 @@ import csv
 import io
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
+from app.core.limiter import limiter
 from app.models.body_metric import BodyMetric
 from app.models.user import User
 from app.models.workout import Workout
@@ -16,7 +17,9 @@ router = APIRouter(prefix='/export', tags=['export'])
 
 
 @router.get('/workouts')
+@limiter.limit('5/minute')
 def export_workouts(
+    request: Request,
     format: str = Query(default='csv', pattern='^csv$'),
     from_date: date | None = None,
     to_date: date | None = None,
@@ -57,7 +60,9 @@ def export_workouts(
 
 
 @router.get('/body-metrics')
+@limiter.limit('5/minute')
 def export_body_metrics(
+    request: Request,
     format: str = Query(default='csv', pattern='^csv$'),
     from_date: date | None = None,
     to_date: date | None = None,

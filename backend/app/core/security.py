@@ -31,6 +31,19 @@ def create_refresh_token(subject: str) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
+def create_impersonation_token(subject: str, impersonator_id: str) -> str:
+    """Create a short-lived access token for admin impersonation, with audit markers."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=60)
+    payload: dict[str, Any] = {
+        'sub': subject,
+        'exp': expire,
+        'type': 'access',
+        'is_impersonating': True,
+        'impersonator_id': impersonator_id,
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
 

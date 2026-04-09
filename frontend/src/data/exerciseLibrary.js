@@ -17,6 +17,7 @@ import {
   getReviewedExerciseImageRecord,
 } from './exerciseImageCatalog';
 
+
 const imageByCategory = {
   Chest: chestImage,
   Back: backImage,
@@ -39,6 +40,10 @@ const localImageByKey = {
 function resolveExerciseImage(record, category) {
   if (record.sourceType === 'pexels') {
     return createPexelsUrl(record.sourceIdOrPath);
+  }
+
+  if (record.sourceType === 'url') {
+    return record.sourceIdOrPath;
   }
 
   if (record.sourceType === 'local') {
