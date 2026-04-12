@@ -21,10 +21,9 @@ const POPULAR_EXERCISES = [
 ];
 
 const GOAL_TYPES = [
-  { value: 'workout_frequency', label: 'Work out regularly', icon: '🗓️' },
-  { value: 'weight_target', label: 'Reach a target weight', icon: '⚖️' },
-  { value: 'strength_gain', label: 'Get stronger', icon: '💪' },
-  { value: 'endurance', label: 'Build endurance', icon: '🏃' },
+  { value: 'workouts_per_week', label: 'Work out regularly (weekly)', icon: '🗓️' },
+  { value: 'workouts_per_month', label: 'Work out regularly (monthly)', icon: '📅' },
+  { value: 'volume_per_week', label: 'Build weekly volume', icon: '💪' },
 ];
 
 const TOTAL_STEPS = 4;
@@ -44,7 +43,7 @@ export default function OnboardingWizard({ onComplete }) {
   );
 
   // Step 3 — goal
-  const [selectedGoal, setSelectedGoal] = useState('workout_frequency');
+  const [selectedGoal, setSelectedGoal] = useState('workouts_per_week');
 
   const toggleExercise = (name) => {
     setSelectedExercises((prev) => {
@@ -78,7 +77,7 @@ export default function OnboardingWizard({ onComplete }) {
       if (selectedGoal) {
         await api.post('/goals', {
           goal_type: selectedGoal,
-          target_value: selectedGoal === 'workout_frequency' ? 3 : 1,
+          target_value: selectedGoal === 'volume_per_week' ? 10000 : 3,
           period: 'weekly',
         }).catch(() => {});
       }

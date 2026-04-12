@@ -2822,20 +2822,6 @@ td {
   border-radius: var(--radius-md);
 }
 
-/* ── Trial Banner ────────────────────────────────── */
-.trial-banner {
-  background: var(--lime-bg);
-  border: 1px solid var(--lime-border);
-  border-radius: 8px;
-  padding: 0.6rem 1rem;
-  margin-bottom: 1rem;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.trial-banner a {
-  font-weight: 600;
-}
-
 /* ── Onboarding Wizard ───────────────────────────── */
 .onboarding-overlay {
   position: fixed;
