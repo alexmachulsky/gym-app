@@ -39,3 +39,7 @@ k8s/base/app-secrets.yaml
 .playwright-mcp/
 .superpowers/
 output/
+
+# Markdown files (except README)
+*.md
+!README.md
