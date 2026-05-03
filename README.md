@@ -20,6 +20,7 @@ ForgeMode is built as a product, not just a CRUD demo:
 - Social features (follow/share), achievements, organizations, a public API with key auth, and webhook endpoints are all wired in
 - AI coaching, billing with Stripe, transactional email, export, admin with impersonation, and equipment profiles round out the platform surface
 - The project ships with Docker Compose for local dev, a production overlay, and full EKS-ready deployment assets including HPA, network policies, TLS ingress, and Terraform
+- The frontend has a deliberate visual identity ("Iron Editorial" — Anton display, Fraunces italics, Manrope body, JetBrains Mono labels, lime-zest accent on warm-black ink) instead of generic dashboard chrome
 
 ## Experience At A Glance
 
@@ -27,7 +28,57 @@ ForgeMode is built as a product, not just a CRUD demo:
 |---|---|
 | ![ForgeMode landing page](docs/images/readme-home.png) | ![ForgeMode workout dashboard](docs/images/readme-workouts.png) |
 
-The current UI uses a dark, neon-lime visual system across the public site, auth flows, and the logged-in training dashboard.
+The UI runs on an **"Iron Editorial"** visual system — an athletic-magazine aesthetic that pairs a heavy industrial display face with an expressive variable serif and a humanist body sans, all set on warm-black ink with a lime-zest accent. The same identity carries through the public marketing pages, auth flows, and the logged-in training dashboard.
+
+## Design System
+
+ForgeMode uses a deliberately distinctive visual language instead of generic dashboard defaults.
+
+### Typography — four-family stack
+
+| Role | Family | Where it shows up |
+|---|---|---|
+| Display | **Anton** (industrial condensed sans) | Page titles, hero headlines, section H2s, large stat numerals |
+| Editorial | **Fraunces** (variable italic serif) | Accent words inside headlines (`<em>` slots), italic subheads |
+| Body | **Manrope** (humanist geometric sans) | All paragraph copy, form fields, descriptions |
+| Mono | **JetBrains Mono** | Eyebrow labels, nav links, button text, ticker captions, tabular numerals |
+
+All four fonts are loaded from Google Fonts in a single `@import` at the top of `frontend/src/styles.css`.
+
+### Color tokens
+
+| Token | Dark theme | Light theme | Purpose |
+|---|---|---|---|
+| `--bg` | `#0c0b09` | `#f3ede1` | Warm-black ink / bone paper |
+| `--surface` | `#15130f` | `#ffffff` | Card / panel surface |
+| `--surface-2` | `#1c1a15` | `#f7f1e3` | Inset / muted surface |
+| `--ember` (= `--lime`) | `#c4f041` | `#65a30d` | Lime-zest accent |
+| `--ember-soft` | `#d4ff5a` | `#84cc16` | Hover/highlight |
+| `--ember-deep` | `#84a813` | `#3f6212` | Active/border ring |
+| `--text` | `#f3ede1` | `#1a160f` | Bone-cream copy (never pure white) |
+| `--text-muted` | `#998f7e` | `#645c4d` | Secondary copy |
+
+The `--lime` and `--ember` aliases share the same value so legacy class names continue to inherit the current accent — swapping the palette is a single-token change.
+
+### Atmosphere & motion
+
+- A subtle SVG paper-grain noise overlay sits across the entire app (`body::before`) for warmth and depth.
+- Two soft radial vignettes (`body::after`) wash the corners with the accent color.
+- Side gym photos are grayscale + accent-tinted with mono captions (`EST · 2026`, `IRON · WORK`).
+- Page transitions and section reveals use staggered `fadeUp` keyframes with cubic-bezier easing.
+- Submit buttons and primary CTAs render an inline `→` arrow that slides 4px on hover.
+
+### Editorial layout system
+
+- **Eyebrow labels** — small mono-uppercase chapter marks above each section (`CHAPTER`, `01 — TOOLKIT`, `02 — ENROLL`, `03 — ENLIST`).
+- **Italic accent words** — every major headline reserves one editorial-italic word in lime to break up the condensed display type.
+- **Asymmetric grids** — the landing features section uses a borderless rule grid with auto-counter index numerals on each card (`01`–`06`).
+- **Pill-shaped sticky topbar** — tiny mono-uppercase nav links with a lime-filled active state and warm glow.
+- **Magazine-cover auth shell** — a 1.2fr / 0.95fr split with a `01 — ENTER` catalog mark, an italic-serif accent in the headline, and a footer metadata strip.
+
+### Responsive
+
+The whole system collapses cleanly at the 640px breakpoint: the topbar restacks brand-over-nav, the page banner becomes vertical, the features grid drops to a single column, and the auth shell stacks brand-card on top of the form.
 
 ## What ForgeMode Does
 
@@ -114,6 +165,7 @@ The backend stays disciplined: routes stay thin, services own business logic, an
 | Layer | Tools |
 |---|---|
 | Frontend | React 18, Vite 6, React Router 6, Axios, Recharts |
+| Design system | Anton + Fraunces + Manrope + JetBrains Mono via Google Fonts; CSS custom properties in `frontend/src/styles.css`; SVG noise overlay; dual-theme tokens (dark + light) |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic Settings |
 | Auth & Security | JWT (python-jose), bcrypt/passlib, refresh tokens, token versioning, CSRF double-submit, slowapi rate limiting, account lockout |
 | Database | PostgreSQL 16, psycopg v3 |
