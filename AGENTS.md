@@ -30,6 +30,8 @@ cd frontend
 npm ci
 npm run dev     # dev server on port 5173 — requires backend running separately
 npm run build   # production build
+node --test tests/exercise-image-catalog.test.mjs  # unit tests (Node built-in runner, not Jest/Vitest)
+npx playwright test  # E2E tests (requires running stack)
 ```
 When running `npm run dev` without Docker, set `VITE_API_BASE_URL=http://localhost:8000` — the default `/api` only works when nginx is proxying.
 
@@ -74,13 +76,15 @@ FastAPI uses a layered structure: **route → service → database query**. Rout
 
 **Core** (`app/core/`): `config.py` (pydantic-settings, reads `.env`), `database.py` (engine + `get_db` dependency), `security.py` (JWT + bcrypt + refresh tokens), `logging.py`, `limiter.py` (slowapi — kept separate from `main.py` to avoid circular imports).
 
-**Dependencies** (`app/utils/deps.py`): `get_current_user` (validates JWT, returns `User` ORM object with eager-loaded subscription), `require_pro` (gates pro-tier features), `check_free_limit` (enforces free-tier limits: exercises=10, templates=3, goals=2).
+**Dependencies** (`app/utils/deps.py`): `get_current_user` (validates JWT, returns `User` ORM object with eager-loaded subscription), `require_pro` (gates pro-tier features; also grants access during active trial), `require_admin`, `require_not_impersonating` (block sensitive actions during admin impersonation), `check_free_limit` (enforces free-tier limits: exercises=10, templates=3, goals=2; does `SELECT FOR UPDATE` on User row), `get_user_limits`.
 
-**Auth flow**: Dual JWT tokens — `access_token` (60 min) + `refresh_token` (30 days). Frontend stores both in `localStorage`, sends access token as `Authorization: Bearer <token>`, and auto-retries with `POST /auth/refresh` on 401.
+**Auth flow**: Dual JWT tokens — `access_token` (60 min) + `refresh_token` (30 days). Frontend stores both in `localStorage`, sends access token as `Authorization: Bearer <token>`, and auto-retries with `POST /auth/refresh` on 401. `token_version` claim in JWT — incrementing it (e.g., on password change) invalidates all existing tokens synchronously.
 
-**Rate limiting**: `/auth/register` and `/auth/login` capped at 5 req/minute per IP.
+**CSRF**: Double-submit cookie pattern — every state-changing request (`POST`/`PUT`/`PATCH`/`DELETE`) requires an `X-CSRF-Token` header that matches the `csrf_token` cookie. Exempt: `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/forgot-password`, `/auth/reset-password`, `/billing/webhook`.
 
-**SQLAlchemy conventions**: Use `joinedload` for related collections to avoid N+1 queries. Call `db.flush()` before `db.refresh()` when the refreshed object depends on cascade-populated fields.
+**Rate limiting**: `/auth/register` and `/auth/login` capped at 5 req/minute per IP. AI routes: 10/min. Export: 3/min. Account lockout after 5 failed logins (15-min `locked_until`).
+
+**SQLAlchemy conventions**: Use `joinedload` for related collections to avoid N+1 queries. Call `db.flush()` before `db.refresh()` when the refreshed object depends on cascade-populated fields. All model files require `from __future__ import annotations` (lazy evaluation for SQLAlchemy 2.0 `Mapped[]` forward references — do not remove). `from app.models import *` in `conftest.py` is required to register all models before `create_all()` — do not remove the star import.
 
 ### Frontend (`frontend/src/`)
 React SPA built with Vite and plain JavaScript (no TypeScript):
@@ -89,9 +93,9 @@ React SPA built with Vite and plain JavaScript (no TypeScript):
 
 **Routing** — `App.jsx`: wraps routes in `<ToastProvider>` and `<SubscriptionProvider>`. Public routes: `/`, `/pricing`, `/terms`, `/privacy`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`. Protected routes wrap in `<ProtectedRoute><Layout />` and include `/exercises`, `/workouts`, `/body-metrics`, `/progress`, `/templates`, `/goals`, `/ai-coach`, `/settings`, `/admin`.
 
-**Key components**: `Layout.jsx` (app shell with `pageViewByPath` map for per-route banners), `ProtectedRoute.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `FeatureGate.jsx`, `UpgradeBanner.jsx`, `ProBadge.jsx`, `UsageMeter.jsx`, `ActiveWorkout.jsx`, `RestTimer.jsx`, `GenerateWorkoutModal.jsx`, `ExerciseDetailModal.jsx`, `ExerciseSwapModal.jsx`, `WorkoutShareCard.jsx`, `PublicLayout.jsx`.
+**Key components**: `Layout.jsx` (app shell with `pageViewByPath` map for per-route banners), `ProtectedRoute.jsx`, `ConfirmDialog.jsx`, `EmptyState.jsx`, `FeatureGate.jsx`, `UpgradeBanner.jsx`, `ProBadge.jsx`, `UsageMeter.jsx`, `ActiveWorkout.jsx`, `RestTimer.jsx`, `GenerateWorkoutModal.jsx`, `ExerciseDetailModal.jsx`, `ExerciseSwapModal.jsx`, `WorkoutShareCard.jsx`, `PublicLayout.jsx`. Files named `*.figma.jsx` (e.g., `FeatureGate.figma.jsx`) are Figma Code Connect stubs — dev-only, not imported at runtime.
 
-**Hooks**: `useToast.jsx` (global toast notifications — `addToast(message, severity)`; severities: `success`, `error`, `info`; auto-dismiss 4s), `useSubscription.jsx` (subscription tier context).
+**Hooks**: `useToast.jsx` (global toast notifications — `addToast(message, severity)`; severities: `success`, `error`, `info`; auto-dismiss 4s), `useSubscription.jsx` (exposes `isPro` [paid OR active trial], `isPaidPro` [paid only], `isOnTrial`, `trialDaysLeft`, `limits`).
 
 **Page patterns**: Pages own local state, use `useToast()` for all API feedback (never local error/notice state), track `isLoading`/`isSubmitting` for async actions, use `touched` object for field-level validation, extract errors with `err.response?.data?.detail || 'Fallback message'`.
 
@@ -129,7 +133,21 @@ React SPA built with Vite and plain JavaScript (no TypeScript):
 - Name test files `test_<feature>.py`. Unit tests in `tests/unit/`, integration in `tests/integration/`.
 - Always call `app.dependency_overrides.clear()` after integration tests. `db_session` fixture uses `scope='function'` — schema recreated per test.
 - `pytest` is in `requirements.txt` (no separate dev-requirements).
+- `conftest.py` sets `SECRET_KEY` via `os.environ.setdefault` **before any app import** — importing `app.main` first will trigger the CRITICAL warning or key validation failure.
 - New service logic and regression-prone API changes should ship with tests.
 - Keep commits focused. Short, imperative commit subjects.
 - PRs: describe user-facing change, list local validation steps, link issues, include screenshots for UI work.
 - If deployment assets change, note `.env`/Terraform/Kubernetes follow-up in the PR.
+
+## Common Pitfalls
+
+| Pitfall | Correct approach |
+|---------|------------------|
+| JWT library | Use `python-jose[cryptography]` → `from jose import jwt`. NOT `PyJWT`. |
+| bcrypt version | `bcrypt==4.0.1` is pinned — newer versions break `passlib`. |
+| AI service HTTP client | `AIService` calls Groq via direct `httpx` requests — there is no `groq` pip package. |
+| psycopg driver | `psycopg` v3 (not v2). Connection strings: `postgresql+psycopg://` not `postgresql+psycopg2://`. |
+| `WorkoutSet.sets` | `sets` is a DB column (rep-set count). `Workout.workout_sets` is the ORM relationship (list of `WorkoutSet`). |
+| `workout_to_response()` | Module-level function in `workout_service.py`, not a method on `WorkoutService`. |
+| SQLite test pool | Use `StaticPool` + `check_same_thread: False` — never add `pool_size`/`max_overflow` to the test engine. |
+| AI route handlers | `AIService._call_llm` is `async def` — AI route handlers must also be `async def`. |

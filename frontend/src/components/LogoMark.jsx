@@ -1,24 +1,31 @@
-export default function LogoMark({ compact = false }) {
+export default function LogoMark({ compact = false, hideLabel = false }) {
   return (
     <div className={`logo-mark${compact ? ' compact' : ''}`}>
       <svg viewBox="0 0 180 180" aria-hidden="true">
         <defs>
           <linearGradient id="logoGradient" x1="20" y1="20" x2="160" y2="160" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#a5fa01" />
-            <stop offset="1" stopColor="#d4ff70" />
+            <stop stopColor="#c4f041" />
+            <stop offset="1" stopColor="#d4ff5a" />
           </linearGradient>
         </defs>
-        <rect x="12" y="12" width="156" height="156" rx="40" fill="#111111" />
-        <rect x="30" y="82" width="120" height="16" rx="8" fill="url(#logoGradient)" />
-        <rect x="22" y="70" width="16" height="40" rx="7" fill="#a5fa01" />
-        <rect x="142" y="70" width="16" height="40" rx="7" fill="#d4ff70" />
-        <circle cx="90" cy="54" r="14" fill="#ffffff" />
-        <rect x="76" y="68" width="28" height="44" rx="12" fill="#ffffff" />
+        <rect x="6" y="6" width="168" height="168" rx="14" fill="#15130f" stroke="#2a2620" strokeWidth="2" />
+        {/* barbell bar */}
+        <rect x="22" y="84" width="136" height="12" rx="2" fill="url(#logoGradient)" />
+        {/* outer plates */}
+        <rect x="14" y="62" width="14" height="56" rx="2" fill="#c4f041" />
+        <rect x="152" y="62" width="14" height="56" rx="2" fill="#c4f041" />
+        {/* inner plates */}
+        <rect x="32" y="72" width="10" height="36" rx="1" fill="#f3ede1" />
+        <rect x="138" y="72" width="10" height="36" rx="1" fill="#f3ede1" />
+        {/* small index mark */}
+        <rect x="86" y="22" width="8" height="32" rx="1" fill="#c4f041" />
       </svg>
-      <div>
-        <p>ForgeMode</p>
-        {!compact && <span>Smart Gym Progress Tracker</span>}
-      </div>
+      {!hideLabel && (
+        <div>
+          <p>FORGEMODE</p>
+          {!compact && <span>EST · 2026 · IRON WORK</span>}
+        </div>
+      )}
     </div>
   );
 }

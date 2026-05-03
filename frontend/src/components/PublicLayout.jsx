@@ -6,19 +6,19 @@ export default function PublicLayout({ children }) {
     <div className="public-layout">
       <nav className="public-nav">
         <Link to="/" className="public-nav-brand">
-          <LogoMark />
-          <span>ForgeMode</span>
+          <LogoMark hideLabel />
+          <span>FORGEMODE</span>
         </Link>
         <div className="public-nav-links">
           <Link to="/pricing">Pricing</Link>
           <Link to="/login">Log in</Link>
-          <Link to="/register" className="btn btn-accent btn-sm">Get Started</Link>
+          <Link to="/register" className="btn btn-accent btn-sm">Enlist</Link>
         </div>
       </nav>
       <main className="public-main">{children}</main>
       <footer className="public-footer">
         <div className="public-footer-inner">
-          <p>&copy; {new Date().getFullYear()} ForgeMode. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} · FORGEMODE · IRON WORK</p>
           <div className="public-footer-links">
             <Link to="/terms">Terms</Link>
             <Link to="/privacy">Privacy</Link>

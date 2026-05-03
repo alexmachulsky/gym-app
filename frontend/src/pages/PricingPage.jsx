@@ -43,8 +43,8 @@ export default function PricingPage() {
   return (
     <PublicLayout>
       <section className="pricing-hero">
-        <h1>Simple, honest pricing</h1>
-        <p>Start free, upgrade when you're ready.</p>
+        <h1>Simple, <em>honest</em> pricing.</h1>
+        <p>Start free. Upgrade when you're ready to dominate.</p>
 
         <div className="billing-toggle">
           <button

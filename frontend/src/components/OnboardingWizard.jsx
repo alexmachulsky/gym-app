@@ -219,7 +219,7 @@ export default function OnboardingWizard({ onComplete }) {
                 Skip setup
               </button>
               <button type="button" className="primary-btn" onClick={() => setStep((s) => s + 1)}>
-                {step === TOTAL_STEPS - 1 ? 'Review' : 'Next'} →
+                {step === TOTAL_STEPS - 1 ? 'Review' : 'Next'}
               </button>
             </>
           ) : (
@@ -233,7 +233,7 @@ export default function OnboardingWizard({ onComplete }) {
                 onClick={handleFinish}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Setting up…' : 'Start training →'}
+                {isSubmitting ? 'Setting up…' : 'Start training'}
               </button>
             </>
           )}

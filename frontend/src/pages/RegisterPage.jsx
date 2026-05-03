@@ -58,10 +58,19 @@ export default function RegisterPage() {
     <div className="auth-shell">
       <div className="auth-brand">
         <LogoMark />
-        <h1>Build your training operating system.</h1>
-        <p>
-          Create your account and start logging workouts, body metrics, and real progression signals.
-        </p>
+        <div>
+          <h1>
+            Build your training <em>operating system.</em>
+          </h1>
+          <p>
+            Create your account and start logging workouts, body metrics, and real progression signals.
+          </p>
+        </div>
+        <div className="auth-brand-footer">
+          <span>EST · 2026</span>
+          <span>Volume · 04</span>
+          <span>Edition · Iron</span>
+        </div>
       </div>
 
       <div className="auth-card">

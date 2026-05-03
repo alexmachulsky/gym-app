@@ -51,10 +51,21 @@ export default function LoginPage() {
     <div className="auth-shell">
       <div className="auth-brand">
         <LogoMark />
-        <h1>Train with Clarity. Improve with Data.</h1>
-        <p>
-          Every workout becomes a signal: volume, strength, trend, and plateau detection in one place.
-        </p>
+        <div>
+          <h1>
+            Train with <em>clarity.</em><br />
+            Improve with data.
+          </h1>
+          <p>
+            Every workout becomes a signal — volume, strength, trend, and plateau detection.
+            One ledger. One iron-clad source of truth.
+          </p>
+        </div>
+        <div className="auth-brand-footer">
+          <span>EST · 2026</span>
+          <span>Volume · 04</span>
+          <span>Edition · Iron</span>
+        </div>
       </div>
 
       <div className="auth-card">
